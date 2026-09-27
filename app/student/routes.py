@@ -1,6 +1,10 @@
-from flask import render_template, request, redirect, url_for
-from flask_login import current_user
+import os
 
+from flask import render_template, request, redirect, url_for, current_app
+from flask_login import current_user
+from werkzeug.utils import secure_filename
+
+from ..models.resume import Resume
 from . import student
 from ..auth.decorators import role_required
 from ..models.student import StudentProfile
@@ -131,5 +135,48 @@ def experience():
 
     return render_template(
         "student/experience.html",
+        student=student_profile
+    )
+
+@student.route("/resume/upload", methods=["GET", "POST"])
+@role_required("student")
+def upload_resume():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    if request.method == "POST":
+        file = request.files.get("resume")
+
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+
+            upload_folder = current_app.config["UPLOAD_FOLDER"]
+            os.makedirs(upload_folder, exist_ok=True)
+
+            file_path = os.path.join(upload_folder, filename)
+            file.save(file_path)
+
+            resume = Resume.query.filter_by(
+                student_id=student_profile.student_id
+            ).first()
+
+            if resume:
+                resume.file_name = filename
+                resume.file_path = file_path
+            else:
+                resume = Resume(
+                    student_id=student_profile.student_id,
+                    file_name=filename,
+                    file_path=file_path
+                )
+                db.session.add(resume)
+
+            db.session.commit()
+
+        return redirect(url_for("student.profile"))
+
+    return render_template(
+        "student/upload_resume.html",
         student=student_profile
     )

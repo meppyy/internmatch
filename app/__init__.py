@@ -1,7 +1,7 @@
 from flask import Flask
 
 from .config import Config
-from .extensions import db
+from .extensions import db, login_manager
 
 
 def create_app():
@@ -10,6 +10,7 @@ def create_app():
     app.config.from_object(Config)
 
     db.init_app(app)
+    login_manager.init_app(app)
 
     from . import models
 
@@ -18,3 +19,10 @@ def create_app():
         return "InternMatch is running!"
 
     return app
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    from .models.user import User
+
+    return User.query.get(int(user_id))

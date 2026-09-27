@@ -131,13 +131,17 @@ def create_internship():
             flash("Invalid application deadline.", "error")
             return render_template("recruiter/create_internship.html")
 
-        required_skills = request.form["required_skills"]
+        required_skills = request.form["required_skills"].strip()
 
         skill_names = [
             skill.strip()
             for skill in required_skills.split(",")
             if skill.strip()
         ]
+
+        if not skill_names:
+            flash("At least one required skill is needed.", "error")
+            return render_template("recruiter/create_internship.html")
 
         skills = []
 

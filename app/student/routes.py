@@ -17,3 +17,15 @@ def dashboard():
         "student/dashboard.html",
         student=student_profile
     )
+
+@student.route("/profile")
+@role_required("student")
+def profile():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    return render_template(
+        "student/profile.html",
+        student=student_profile
+    )

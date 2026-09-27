@@ -153,11 +153,11 @@ def create_internship():
 
         required_skills = request.form["required_skills"].strip()
 
-        skill_names = [
+        skill_names = list(dict.fromkeys(
             skill.strip()
             for skill in required_skills.split(",")
             if skill.strip()
-        ]
+        ))
 
         if not skill_names:
             flash("At least one required skill is needed.", "error")

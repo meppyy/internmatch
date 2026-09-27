@@ -2,6 +2,7 @@ import pytest
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.auth.decorators import role_required
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -9,6 +10,7 @@ from app.models import (
     StudentProfile,
     User,
 )
+from app.auth.decorators import role_required
 
 
 @pytest.fixture
@@ -22,7 +24,26 @@ def app():
 
     with app.app_context():
         db.create_all()
+
+        @app.route("/test-student")
+        @role_required("student")
+        def test_student_route():
+            return "Student access granted!"
+
+
+        @app.route("/test-recruiter")
+        @role_required("recruiter")
+        def test_recruiter_route():
+            return "Recruiter access granted!"
+
+
+        @app.route("/test-admin")
+        @role_required("admin")
+        def test_admin_route():
+            return "Admin access granted!"
+        
         yield app
+
         db.session.remove()
         db.drop_all()
 
@@ -205,12 +226,8 @@ def test_logout(client, app):
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/")
 
-
 def test_protected_route_requires_login(client):
-    response = client.get(
-        "/auth/student-test",
-        follow_redirects=False,
-    )
+    response = client.get("/test-student", follow_redirects=False)
 
     assert response.status_code == 302
     assert "/auth/login" in response.headers["Location"]
@@ -225,13 +242,10 @@ def test_student_role_authorization(client, app):
             role="student",
         )
 
-    login(
-        client,
-        "student@example.com",
-        "TestPassword123",
-    )
+    login(client, "student@example.com", "TestPassword123")
 
-    response = client.get("/auth/student-test")
+    response = client.get("/test-student")
+
     assert response.status_code == 200
     assert b"Student access granted!" in response.data
 
@@ -245,13 +259,9 @@ def test_student_blocked_from_recruiter_route(client, app):
             role="student",
         )
 
-    login(
-        client,
-        "student2@example.com",
-        "TestPassword123",
-    )
+    login(client, "student2@example.com", "TestPassword123")
 
-    response = client.get("/auth/recruiter-test")
+    response = client.get("/test-recruiter")
 
     assert response.status_code == 403
 
@@ -265,12 +275,8 @@ def test_student_blocked_from_admin_route(client, app):
             role="student",
         )
 
-    login(
-        client,
-        "student3@example.com",
-        "TestPassword123",
-    )
+    login(client, "student3@example.com", "TestPassword123")
 
-    response = client.get("/auth/admin-test")
+    response = client.get("/test-admin")
 
     assert response.status_code == 403

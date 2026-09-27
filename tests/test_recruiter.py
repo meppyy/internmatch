@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import User
+from app.models import User, RecruiterProfile
 
 
 @pytest.fixture
@@ -69,13 +69,21 @@ def test_recruiter_dashboard_requires_login(client):
 
 def test_recruiter_can_access_dashboard(client, app):
     with app.app_context():
-        create_user(
+        recruiter = create_user(
             db.session,
             name="Test Recruiter",
             email="recruiter@test.com",
             password="TestPassword123",
             role="recruiter",
         )
+
+        db.session.add(
+            RecruiterProfile(
+                user_id=recruiter.user_id,
+                company_name="Test Company",
+            )
+        )
+        db.session.commit()
 
     login(
         client,

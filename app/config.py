@@ -18,3 +18,5 @@ class Config:
         BASE_DIR,
         "uploads"
     )
+
+    ALLOWED_RESUME_EXTENSIONS = {"pdf", "doc", "docx"}

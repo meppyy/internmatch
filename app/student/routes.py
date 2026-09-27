@@ -151,7 +151,21 @@ def upload_resume():
         if file and file.filename:
             filename = secure_filename(file.filename)
 
+            extension = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+
+            allowed_extensions = current_app.config[
+                "ALLOWED_RESUME_EXTENSIONS"
+            ]
+
+            if extension not in allowed_extensions:
+                return render_template(
+                    "student/upload_resume.html",
+                     student=student_profile,
+                    error="Invalid file type. Please upload a PDF, DOC, or DOCX file."
+                )
+
             upload_folder = current_app.config["UPLOAD_FOLDER"]
+
             os.makedirs(upload_folder, exist_ok=True)
 
             file_path = os.path.join(upload_folder, filename)

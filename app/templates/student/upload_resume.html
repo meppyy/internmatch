@@ -20,6 +20,10 @@
     {% else %}
         <p>No resume uploaded yet.</p>
     {% endif %}
+    
+    {% if error %}
+        <p>{{ error }}</p>
+    {% endif %}
 
     <form method="POST" enctype="multipart/form-data">
 

@@ -90,7 +90,12 @@ def create_internship():
             flash("Internship description is required.", "error")
             return render_template("recruiter/create_internship.html")
 
-        location = request.form["location"]
+        location = request.form["location"].strip()
+
+        if not location:
+            flash("Location is required.", "error")
+            return render_template("recruiter/create_internship.html")
+        
         work_mode = request.form["work_mode"]
 
         if work_mode not in ["Remote", "Hybrid", "On-site"]:

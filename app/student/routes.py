@@ -39,18 +39,29 @@ def edit_profile():
     ).first()
 
     if request.method == "POST":
-        student_profile.phone = request.form.get("phone", "").strip()
-        student_profile.education = request.form.get("education", "").strip()
-        student_profile.profile_summary = request.form.get(
+        if "phone" in request.form:
+            student_profile.phone = request.form.get("phone", "").strip()
+
+        if "education" in request.form:
+            student_profile.education = request.form.get("education", "").strip()
+
+        if "profile_summary" in request.form:
+            student_profile.profile_summary = request.form.get(
             "profile_summary", ""
         ).strip()
-        student_profile.experience = request.form.get(
+
+        if "experience" in request.form:
+            student_profile.experience = request.form.get(
             "experience", ""
         ).strip()
-        student_profile.projects = request.form.get(
+
+        if "projects" in request.form:
+            student_profile.projects = request.form.get(
             "projects", ""
         ).strip()
-        student_profile.certifications = request.form.get(
+
+        if "certifications" in request.form:
+            student_profile.certifications = request.form.get(
             "certifications", ""
         ).strip()
 
@@ -110,3 +121,15 @@ def remove_skill(skill_id):
         db.session.commit()
 
     return redirect(url_for("student.skills"))
+
+@student.route("/experience")
+@role_required("student")
+def experience():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    return render_template(
+        "student/experience.html",
+        student=student_profile
+    )

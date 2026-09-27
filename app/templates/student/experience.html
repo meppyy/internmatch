@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Experience & Projects - InternMatch</title>
+</head>
+<body>
+
+    <h1>Experience, Projects & Certifications</h1>
+
+    <p>
+        <a href="{{ url_for('student.profile') }}">Back to Profile</a>
+    </p>
+
+    <form method="POST" action="{{ url_for('student.edit_profile') }}">
+
+        <h2>Experience</h2>
+        <textarea
+            name="experience"
+            rows="8"
+            cols="60"
+            placeholder="Describe your experience..."
+        >{{ student.experience or "" }}</textarea>
+
+        <h2>Projects</h2>
+        <textarea
+            name="projects"
+            rows="8"
+            cols="60"
+            placeholder="Describe your projects..."
+        >{{ student.projects or "" }}</textarea>
+
+        <h2>Certifications</h2>
+        <textarea
+            name="certifications"
+            rows="8"
+            cols="60"
+            placeholder="List your certifications..."
+        >{{ student.certifications or "" }}</textarea>
+
+        <br><br>
+
+        <button type="submit">Save Changes</button>
+
+    </form>
+
+</body>
+</html>

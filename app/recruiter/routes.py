@@ -90,6 +90,8 @@ def create_internship():
         ).date()
         status = request.form["status"]
 
+        required_skills = request.form["required_skills"]
+
         recruiter_profile = RecruiterProfile.query.filter_by(
             user_id=current_user.user_id
         ).first()

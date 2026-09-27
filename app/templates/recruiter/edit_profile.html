@@ -8,5 +8,19 @@
 
     <h1>Edit Recruiter Profile</h1>
 
+    <form method="POST">
+
+        <label for="company_name">Company Name:</label>
+        <input
+            type="text"
+            id="company_name"
+            name="company_name"
+            value="{{ recruiter_profile.company_name }}"
+        >
+
+        <button type="submit">Save Changes</button>
+
+    </form>
+
 </body>
 </html>

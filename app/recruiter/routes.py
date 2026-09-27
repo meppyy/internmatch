@@ -1,6 +1,7 @@
-from flask import render_template
+from flask import render_template, request
 from flask_login import current_user
 
+from ..extensions import db
 from ..auth.decorators import role_required
 from . import recruiter
 from ..models.recruiter import RecruiterProfile
@@ -50,12 +51,16 @@ def profile():
         recruiter_email=current_user.email
     )
 
-@recruiter.route("/profile/edit")
+@recruiter.route("/profile/edit", methods=["GET", "POST"])
 @role_required("recruiter")
 def edit_profile():
     recruiter_profile = RecruiterProfile.query.filter_by(
         user_id=current_user.user_id
     ).first()
+
+    if request.method == "POST":
+        recruiter_profile.company_name = request.form["company_name"]
+        db.session.commit()
 
     return render_template(
         "recruiter/edit_profile.html",

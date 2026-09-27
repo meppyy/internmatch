@@ -176,6 +176,11 @@ def upload_resume():
             ).first()
 
             if resume:
+                old_file_path = resume.file_path
+
+                if os.path.exists(old_file_path) and old_file_path != file_path:
+                    os.remove(old_file_path)
+                    
                 resume.file_name = filename
                 resume.file_path = file_path
             else:

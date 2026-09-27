@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - InternMatch</title>
+</head>
+<body>
+
+    <h1>Student Dashboard</h1>
+
+    {% if student %}
+        <h2>Welcome, {{ student.user.name }}!</h2>
+
+        <h3>Profile Overview</h3>
+
+        <p>
+            <strong>Email:</strong>
+            {{ student.user.email }}
+        </p>
+
+        <p>
+            <strong>Phone:</strong>
+            {{ student.phone or "Not added" }}
+        </p>
+
+        <p>
+            <strong>Education:</strong>
+            {{ student.education or "Not added" }}
+        </p>
+
+        <h3>Skills</h3>
+
+        <p>
+            {{ student.skills|length }} skill(s) added
+        </p>
+
+        {% if student.skills %}
+            <ul>
+                {% for skill in student.skills %}
+                    <li>{{ skill.name }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No skills added yet.</p>
+        {% endif %}
+
+        <h3>Experience</h3>
+
+        <p>
+            {{ student.experience or "No experience added yet." }}
+        </p>
+
+        <h3>Projects</h3>
+
+        <p>
+            {{ student.projects or "No projects added yet." }}
+        </p>
+
+        <h3>Certifications</h3>
+
+        <p>
+            {{ student.certifications or "No certifications added yet." }}
+        </p>
+
+        <h3>Resume</h3>
+
+        {% if student.resume %}
+            <p>
+                Resume uploaded:
+                <strong>{{ student.resume.file_name }}</strong>
+            </p>
+        {% else %}
+            <p>No resume uploaded yet.</p>
+        {% endif %}
+
+    {% else %}
+        <p>Student profile not found.</p>
+    {% endif %}
+
+</body>
+</html>

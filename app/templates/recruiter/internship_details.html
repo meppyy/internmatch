@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ internship.title }}</title>
+</head>
+<body>
+    <h1>{{ internship.title }}</h1>
+
+    <p>Company: {{ internship.company_name }}</p>
+    <p>Description: {{ internship.description }}</p>
+    <p>Location: {{ internship.location }}</p>
+    <p>Work Mode: {{ internship.work_mode }}</p>
+    <p>Duration: {{ internship.duration }}</p>
+    <p>Stipend: {{ internship.stipend }}</p>
+    <p>Eligibility: {{ internship.eligibility }}</p>
+    <p>Deadline: {{ internship.deadline }}</p>
+    <p>Status: {{ internship.status }}</p>
+
+    <h2>Required Skills</h2>
+
+    {% if internship.skills %}
+        <ul>
+            {% for skill in internship.skills %}
+                <li>{{ skill.skill_name }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No required skills listed.</p>
+    {% endif %}
+</body>
+</html>

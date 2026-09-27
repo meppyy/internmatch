@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import render_template, request
 from flask_login import current_user
 
@@ -6,6 +7,7 @@ from ..auth.decorators import role_required
 from . import recruiter
 from ..models.recruiter import RecruiterProfile
 from ..models.internship import Internship
+from app.models import internship
 
 
 @recruiter.route("/dashboard")
@@ -70,7 +72,43 @@ def edit_profile():
         recruiter_profile=recruiter_profile
     )
 
-@recruiter.route("/internships/create")
+@recruiter.route("/internships/create", methods=["GET", "POST"])
 @role_required("recruiter")
 def create_internship():
+
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        location = request.form["location"]
+        work_mode = request.form["work_mode"]
+        duration = request.form["duration"]
+        stipend = request.form["stipend"]
+        eligibility = request.form["eligibility"]
+        deadline = datetime.strptime(
+            request.form["deadline"],
+            "%Y-%m-%d"
+        ).date()
+        status = request.form["status"]
+
+        recruiter_profile = RecruiterProfile.query.filter_by(
+            user_id=current_user.user_id
+        ).first()
+
+        internship = Internship(
+            recruiter_id=recruiter_profile.recruiter_id,
+            company_name=recruiter_profile.company_name,
+            title=title,
+            description=description,
+            location=location,
+            work_mode=work_mode,
+            duration=duration,
+            stipend=stipend,
+            eligibility=eligibility,
+            deadline=deadline,
+            status=status
+        )
+
+        db.session.add(internship)
+        db.session.commit()
+
     return render_template("recruiter/create_internship.html")

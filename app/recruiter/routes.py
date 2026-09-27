@@ -168,6 +168,10 @@ def create_internship():
             user_id=current_user.user_id
         ).first()
 
+        if not recruiter_profile.company_name.strip():
+            flash("Company name is required.", "error")
+            return render_template("recruiter/create_internship.html")
+
         internship = Internship(
             recruiter_id=recruiter_profile.recruiter_id,
             company_name=recruiter_profile.company_name,

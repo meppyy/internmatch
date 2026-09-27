@@ -129,6 +129,10 @@ def create_internship():
         )
 
         db.session.add(internship)
+
+        for skill in skills:
+            internship.skills.append(skill)
+            
         db.session.commit()
 
     return render_template("recruiter/create_internship.html")

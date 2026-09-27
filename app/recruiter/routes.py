@@ -49,3 +49,15 @@ def profile():
         recruiter_profile=recruiter_profile,
         recruiter_email=current_user.email
     )
+
+@recruiter.route("/profile/edit")
+@role_required("recruiter")
+def edit_profile():
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    return render_template(
+        "recruiter/edit_profile.html",
+        recruiter_profile=recruiter_profile
+    )

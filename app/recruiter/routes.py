@@ -7,4 +7,4 @@ from . import recruiter
 @recruiter.route("/dashboard")
 @role_required("recruiter")
 def dashboard():
-    return "Recruiter Dashboard"
+    return render_template("recruiter/dashboard.html")

@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from flask import render_template, request, flash
+from flask import render_template, request, flash, abort
 from flask_login import current_user
 
 from ..extensions import db
@@ -223,4 +223,24 @@ def internships():
     return render_template(
         "recruiter/internships.html",
         internships=internships
+    )
+
+@recruiter.route("/internships/<int:internship_id>")
+@role_required("recruiter")
+def internship_details(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first()
+
+    if not internship:
+        abort(404)
+
+    return render_template(
+        "recruiter/internship_details.html",
+        internship=internship
     )

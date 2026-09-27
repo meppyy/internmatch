@@ -2,6 +2,7 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_login import login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from .decorators import role_required
 from ..extensions import db
 from ..models.recruiter import RecruiterProfile
 from ..models.student import StudentProfile
@@ -105,3 +106,20 @@ def login():
         return redirect(url_for("home"))
 
     return render_template("auth/login.html")
+
+@auth.route("/student-test")
+@role_required("student")
+def student_test():
+    return "Student access granted!"
+
+
+@auth.route("/recruiter-test")
+@role_required("recruiter")
+def recruiter_test():
+    return "Recruiter access granted!"
+
+
+@auth.route("/admin-test")
+@role_required("admin")
+def admin_test():
+    return "Admin access granted!"

@@ -78,7 +78,12 @@ def edit_profile():
 def create_internship():
 
     if request.method == "POST":
-        title = request.form["title"]
+        title = request.form["title"].strip()
+
+        if not title:
+            flash("Internship title is required.", "error")
+            return render_template("recruiter/create_internship.html")
+
         description = request.form["description"]
         location = request.form["location"]
         work_mode = request.form["work_mode"]

@@ -99,6 +99,17 @@ def create_internship():
             if skill.strip()
         ]
 
+        skills = []
+
+        for skill_name in skill_names:
+            skill = Skill.query.filter_by(name=skill_name).first()
+
+            if not skill:
+                skill = Skill(name=skill_name)
+                db.session.add(skill)
+
+            skills.append(skill)
+
         recruiter_profile = RecruiterProfile.query.filter_by(
             user_id=current_user.user_id
         ).first()

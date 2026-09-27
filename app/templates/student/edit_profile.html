@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - InternMatch</title>
+</head>
+<body>
+
+    <h1>Edit Profile</h1>
+
+    <form method="POST">
+
+        <div>
+            <label for="phone">Phone:</label>
+            <input
+                type="text"
+                id="phone"
+                name="phone"
+                value="{{ student.phone or '' }}"
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="education">Education:</label>
+            <textarea
+                id="education"
+                name="education"
+                rows="3"
+            >{{ student.education or '' }}</textarea>
+        </div>
+
+        <br>
+
+        <div>
+            <label for="profile_summary">Profile Summary:</label>
+            <textarea
+                id="profile_summary"
+                name="profile_summary"
+                rows="5"
+            >{{ student.profile_summary or '' }}</textarea>
+        </div>
+
+        <br>
+
+        <div>
+            <label for="experience">Experience:</label>
+            <textarea
+                id="experience"
+                name="experience"
+                rows="5"
+            >{{ student.experience or '' }}</textarea>
+        </div>
+
+        <br>
+
+        <div>
+            <label for="projects">Projects:</label>
+            <textarea
+                id="projects"
+                name="projects"
+                rows="5"
+            >{{ student.projects or '' }}</textarea>
+        </div>
+
+        <br>
+
+        <div>
+            <label for="certifications">Certifications:</label>
+            <textarea
+                id="certifications"
+                name="certifications"
+                rows="5"
+            >{{ student.certifications or '' }}</textarea>
+        </div>
+
+        <br>
+
+        <button type="submit">Save Changes</button>
+
+    </form>
+
+    <br>
+
+    <a href="{{ url_for('student.profile') }}">Back to Profile</a>
+
+</body>
+</html>

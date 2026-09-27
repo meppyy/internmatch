@@ -62,10 +62,15 @@ def edit_profile():
         recruiter_profile.company_name = request.form["company_name"]
         recruiter_profile.company_description = request.form["company_description"]
         recruiter_profile.contact_phone = request.form["contact_phone"]
-        
+
         db.session.commit()
 
     return render_template(
         "recruiter/edit_profile.html",
         recruiter_profile=recruiter_profile
     )
+
+@recruiter.route("/internships/create")
+@role_required("recruiter")
+def create_internship():
+    return render_template("recruiter/create_internship.html")

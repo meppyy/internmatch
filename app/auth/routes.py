@@ -1,5 +1,5 @@
 from flask import flash, redirect, render_template, request, url_for
-from flask_login import login_user
+from flask_login import login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
@@ -77,6 +77,12 @@ def register():
         return redirect(url_for("auth.login"))
 
     return render_template("auth/register.html")
+
+@auth.route("/logout")
+def logout():
+    logout_user()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("home"))
 
 @auth.route("/login", methods=["GET", "POST"])
 def login():

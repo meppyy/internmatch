@@ -6,7 +6,11 @@
 </head>
 <body>
 
+
+
     <h1>Create Internship</h1>
+
+    <form method="POST">
 
     <label for="title">Internship Title:</label>
     <input
@@ -50,6 +54,30 @@
         name="stipend"
         min="0"
     >
+
+    <label for="eligibility">Eligibility:</label>
+    <textarea
+        id="eligibility"
+        name="eligibility"
+    ></textarea>
+
+    <label for="deadline">Application Deadline:</label>
+    <input
+        type="date"
+        id="deadline"
+        name="deadline"
+    >
+
+    <label for="status">Status:</label>
+    <select id="status" name="status">
+        <option value="Draft">Draft</option>
+        <option value="Active">Active</option>
+        <option value="Closed">Closed</option>
+    </select>
+
+    <button type="submit">Create Internship</button>
+
+    </form>
 
 </body>
 </html>

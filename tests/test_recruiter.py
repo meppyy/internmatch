@@ -87,6 +87,7 @@ def test_recruiter_can_access_dashboard(client, app):
 
     assert response.status_code == 200
     assert b"Recruiter Dashboard" in response.data
+    assert b"Test Recruiter" in response.data
 
 
 def test_student_cannot_access_recruiter_dashboard(client, app):

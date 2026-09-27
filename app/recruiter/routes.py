@@ -165,7 +165,7 @@ def create_internship():
             stipend=stipend,
             eligibility=eligibility,
             deadline=deadline,
-            status=status
+            status = request.form["status"]
         )
 
         db.session.add(internship)

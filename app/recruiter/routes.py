@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from flask import render_template, request, flash
 from flask_login import current_user
 
@@ -139,6 +139,10 @@ def create_internship():
             ).date()
         except ValueError:
             flash("Invalid application deadline.", "error")
+            return render_template("recruiter/create_internship.html")
+
+        if deadline < datetime.now().date():
+            flash("Application deadline cannot be in the past.", "error")
             return render_template("recruiter/create_internship.html")
 
         status = request.form["status"]

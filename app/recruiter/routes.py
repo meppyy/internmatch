@@ -102,7 +102,12 @@ def create_internship():
             flash("Invalid work mode.", "error")
             return render_template("recruiter/create_internship.html")
 
-        duration = request.form["duration"]
+        duration = request.form["duration"].strip()
+
+        if not duration:
+            flash("Duration is required.", "error")
+            return render_template("recruiter/create_internship.html")
+
         stipend = request.form["stipend"].strip()
 
         try:

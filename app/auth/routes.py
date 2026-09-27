@@ -1,5 +1,6 @@
 from flask import flash, redirect, render_template, request, url_for
-from werkzeug.security import generate_password_hash
+from flask_login import login_user
+from werkzeug.security import check_password_hash
 
 from ..extensions import db
 from ..models.recruiter import RecruiterProfile
@@ -76,3 +77,25 @@ def register():
         return redirect(url_for("auth.login"))
 
     return render_template("auth/register.html")
+
+@auth.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        user = User.query.filter_by(email=email).first()
+
+        if user is None or not check_password_hash(
+            user.password_hash,
+            password
+        ):
+            flash("Invalid email or password.", "error")
+            return redirect(url_for("auth.login"))
+
+        login_user(user)
+
+        flash("Login successful.", "success")
+        return redirect(url_for("home"))
+
+    return render_template("auth/login.html")

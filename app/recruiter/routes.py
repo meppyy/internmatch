@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import render_template, request
+from flask import render_template, request, flash
 from flask_login import current_user
 
 from ..extensions import db
@@ -102,10 +102,10 @@ def create_internship():
         skills = []
 
         for skill_name in skill_names:
-            skill = Skill.query.filter_by(name=skill_name).first()
+            skill = Skill.query.filter_by(skill_name=skill_name).first()
 
             if not skill:
-                skill = Skill(name=skill_name)
+                skill = Skill(skill_name=skill_name)
                 db.session.add(skill)
 
             skills.append(skill)
@@ -132,7 +132,9 @@ def create_internship():
 
         for skill in skills:
             internship.skills.append(skill)
-            
+
         db.session.commit()
+
+        flash("Internship created successfully.", "success")
 
     return render_template("recruiter/create_internship.html")

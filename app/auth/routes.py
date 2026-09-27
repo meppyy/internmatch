@@ -1,6 +1,6 @@
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import login_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
 from ..models.recruiter import RecruiterProfile

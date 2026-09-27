@@ -110,7 +110,12 @@ def create_internship():
             flash("Stipend cannot be negative.", "error")
             return render_template("recruiter/create_internship.html")
 
-        eligibility = request.form["eligibility"]
+        eligibility = request.form["eligibility"].strip()
+
+        if not eligibility:
+            flash("Eligibility requirements are required.", "error")
+            return render_template("recruiter/create_internship.html")
+
         deadline = datetime.strptime(
             request.form["deadline"],
             "%Y-%m-%d"

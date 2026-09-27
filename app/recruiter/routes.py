@@ -141,6 +141,12 @@ def create_internship():
             flash("Invalid application deadline.", "error")
             return render_template("recruiter/create_internship.html")
 
+        status = request.form["status"]
+
+        if status not in ["Draft", "Active", "Closed"]:
+            flash("Invalid internship status.", "error")
+            return render_template("recruiter/create_internship.html")
+
         required_skills = request.form["required_skills"].strip()
 
         skill_names = [
@@ -183,7 +189,7 @@ def create_internship():
             stipend=stipend,
             eligibility=eligibility,
             deadline=deadline,
-            status = request.form["status"]
+            status=status
         )
 
         db.session.add(internship)

@@ -92,6 +92,11 @@ def create_internship():
 
         location = request.form["location"]
         work_mode = request.form["work_mode"]
+
+        if work_mode not in ["Remote", "Hybrid", "On-site"]:
+            flash("Invalid work mode.", "error")
+            return render_template("recruiter/create_internship.html")
+
         duration = request.form["duration"]
         stipend = request.form["stipend"]
         eligibility = request.form["eligibility"]

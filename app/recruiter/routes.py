@@ -98,7 +98,18 @@ def create_internship():
             return render_template("recruiter/create_internship.html")
 
         duration = request.form["duration"]
-        stipend = request.form["stipend"]
+        stipend = request.form["stipend"].strip()
+
+        try:
+            stipend_value = float(stipend)
+        except ValueError:
+            flash("Stipend must be a number.", "error")
+            return render_template("recruiter/create_internship.html")
+
+        if stipend_value < 0:
+            flash("Stipend cannot be negative.", "error")
+            return render_template("recruiter/create_internship.html")
+
         eligibility = request.form["eligibility"]
         deadline = datetime.strptime(
             request.form["deadline"],

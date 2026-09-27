@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Skills - InternMatch</title>
+</head>
+<body>
+
+    <h1>My Skills</h1>
+
+    <p>
+        <a href="{{ url_for('student.profile') }}">Back to Profile</a>
+    </p>
+
+    <h2>Add a Skill</h2>
+
+    <form method="POST">
+        <input
+            type="text"
+            name="skill_name"
+            placeholder="Enter a skill"
+            required
+        >
+
+        <button type="submit">Add Skill</button>
+    </form>
+
+    <h2>Current Skills</h2>
+
+    {% if student.skills %}
+        <ul>
+            {% for skill in student.skills %}
+                <li>
+                    {{ skill.skill_name }}
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('student.remove_skill', skill_id=skill.skill_id) }}"
+                        style="display:inline;"
+                    >
+                        <button type="submit">Remove</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No skills added yet.</p>
+    {% endif %}
+
+</body>
+</html>

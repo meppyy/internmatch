@@ -18,6 +18,20 @@
             value="{{ recruiter_profile.company_name }}"
         >
 
+        <label for="company_description">Company Description:</label>
+        <textarea
+            id="company_description"
+            name="company_description"
+        >{{ recruiter_profile.company_description or "" }}</textarea>
+
+        <label for="contact_phone">Contact Phone:</label>
+        <input
+            type="text"
+            id="contact_phone"
+            name="contact_phone"
+            value="{{ recruiter_profile.contact_phone or "" }}"
+        >
+
         <button type="submit">Save Changes</button>
 
     </form>

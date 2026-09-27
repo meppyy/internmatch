@@ -60,6 +60,9 @@ def edit_profile():
 
     if request.method == "POST":
         recruiter_profile.company_name = request.form["company_name"]
+        recruiter_profile.company_description = request.form["company_description"]
+        recruiter_profile.contact_phone = request.form["contact_phone"]
+        
         db.session.commit()
 
     return render_template(

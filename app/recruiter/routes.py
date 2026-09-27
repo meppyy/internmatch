@@ -7,6 +7,7 @@ from ..auth.decorators import role_required
 from . import recruiter
 from ..models.recruiter import RecruiterProfile
 from ..models.internship import Internship
+from ..models.skill import Skill
 from app.models import internship
 
 

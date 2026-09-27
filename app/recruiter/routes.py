@@ -92,6 +92,12 @@ def create_internship():
 
         required_skills = request.form["required_skills"]
 
+        skill_names = [
+            skill.strip()
+            for skill in required_skills.split(",")
+            if skill.strip()
+        ]
+
         recruiter_profile = RecruiterProfile.query.filter_by(
             user_id=current_user.user_id
         ).first()

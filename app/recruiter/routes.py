@@ -116,11 +116,20 @@ def create_internship():
             flash("Eligibility requirements are required.", "error")
             return render_template("recruiter/create_internship.html")
 
-        deadline = datetime.strptime(
-            request.form["deadline"],
-            "%Y-%m-%d"
-        ).date()
-        status = request.form["status"]
+        deadline_input = request.form["deadline"].strip()
+
+        if not deadline_input:
+            flash("Application deadline is required.", "error")
+            return render_template("recruiter/create_internship.html")
+
+        try:
+            deadline = datetime.strptime(
+                deadline_input,
+                "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            flash("Invalid application deadline.", "error")
+            return render_template("recruiter/create_internship.html")
 
         required_skills = request.form["required_skills"]
 

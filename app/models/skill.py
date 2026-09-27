@@ -45,3 +45,15 @@ class Skill(db.Model):
         unique=True,
         nullable=False
     )
+
+    students = db.relationship(
+        "StudentProfile",
+        secondary=student_skills,
+        back_populates="skills"
+    )
+
+    internships = db.relationship(
+        "Internship",
+        secondary=internship_skills,
+        back_populates="skills"
+    )

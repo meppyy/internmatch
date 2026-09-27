@@ -23,7 +23,29 @@ class StudentProfile(db.Model):
     projects = db.Column(db.Text)
     certifications = db.Column(db.Text)
 
-    skills = db.relationship("Skill", secondary=student_skills, backref="students")
+    user = db.relationship(
+        "User",
+        back_populates="student_profile"
+    )
+
+    resume = db.relationship(
+        "Resume",
+        back_populates="student",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    applications = db.relationship(
+        "Application",
+        back_populates="student",
+        cascade="all, delete-orphan"
+    )
+    
+    skills = db.relationship(
+        "Skill",
+        secondary=student_skills,
+        back_populates="students"
+    )
 
     updated_at = db.Column(
         db.DateTime,

@@ -18,6 +18,16 @@ class Resume(db.Model):
     file_path = db.Column(db.String(500), nullable=False)
     extracted_text = db.Column(db.Text)
 
+    student = db.relationship(
+        "StudentProfile",
+        back_populates="resume"
+    )
+
+    applications = db.relationship(
+        "Application",
+        back_populates="resume"
+    )
+
     uploaded_at = db.Column(
         db.DateTime,
         default=datetime.utcnow,

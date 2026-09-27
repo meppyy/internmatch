@@ -25,7 +25,22 @@ class Internship(db.Model):
     eligibility = db.Column(db.Text)
     required_skills = db.Column(db.Text)
 
-    skills = db.relationship("Skill", secondary=internship_skills, backref="internships")
+    recruiter = db.relationship(
+        "RecruiterProfile",
+        back_populates="internships"
+    )
+
+    applications = db.relationship(
+        "Application",
+        back_populates="internship",
+        cascade="all, delete-orphan"
+    )
+
+    skills = db.relationship(
+        "Skill",
+        secondary=internship_skills,
+        back_populates="internships"
+    )
 
     deadline = db.Column(db.Date)
     status = db.Column(db.String(30), nullable=False, default="Open")

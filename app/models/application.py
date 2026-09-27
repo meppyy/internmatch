@@ -52,3 +52,18 @@ class Application(db.Model):
         onupdate=datetime.utcnow,
         nullable=False
     )
+
+    student = db.relationship(
+        "StudentProfile",
+        back_populates="applications"
+    )
+
+    internship = db.relationship(
+        "Internship",
+        back_populates="applications"
+    )
+
+    resume = db.relationship(
+        "Resume",
+        back_populates="applications"
+    )

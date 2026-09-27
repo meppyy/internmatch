@@ -1,5 +1,7 @@
 import pytest
 
+from sqlalchemy.exc import IntegrityError
+
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -49,6 +51,30 @@ def test_user_creation(session):
     assert user.email == "test@example.com"
     assert user.role == "student"
 
+def test_user_email_must_be_unique(session):
+    user1 = User(
+        name="User One",
+        email="same@example.com",
+        password_hash="hash",
+        role="student",
+    )
+
+    user2 = User(
+        name="User Two",
+        email="same@example.com",
+        password_hash="hash",
+        role="student",
+    )
+
+    session.add(user1)
+    session.commit()
+
+    session.add(user2)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()
 
 def test_student_profile(session):
     user = User(

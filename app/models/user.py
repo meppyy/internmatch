@@ -6,6 +6,20 @@ from ..extensions import db
 class User(db.Model):
     __tablename__ = "users"
 
+    student_profile = db.relationship(
+        "StudentProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    recruiter_profile = db.relationship(
+        "RecruiterProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
     user_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)

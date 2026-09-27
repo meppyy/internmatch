@@ -1,6 +1,6 @@
 import os
 
-from flask import render_template, request, redirect, url_for, current_app
+from flask import render_template, request, redirect, url_for, current_app, send_file
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 
@@ -180,7 +180,7 @@ def upload_resume():
 
                 if os.path.exists(old_file_path) and old_file_path != file_path:
                     os.remove(old_file_path)
-                    
+
                 resume.file_name = filename
                 resume.file_path = file_path
             else:
@@ -198,4 +198,25 @@ def upload_resume():
     return render_template(
         "student/upload_resume.html",
         student=student_profile
+    )
+
+@student.route("/resume")
+@role_required("student")
+def view_resume():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    if not student_profile or not student_profile.resume:
+        return "Resume not found", 404
+
+    resume = student_profile.resume
+
+    if not os.path.exists(resume.file_path):
+        return "Resume file not found", 404
+
+    return send_file(
+        resume.file_path,
+        as_attachment=False,
+        download_name=resume.file_name
     )

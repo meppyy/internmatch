@@ -206,3 +206,21 @@ def create_internship():
         flash("Internship created successfully.", "success")
 
     return render_template("recruiter/create_internship.html")
+
+@recruiter.route("/internships")
+@role_required("recruiter")
+def internships():
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    internships = Internship.query.filter_by(
+        recruiter_id=recruiter_profile.recruiter_id
+    ).order_by(
+        Internship.created_at.desc()
+    ).all()
+
+    return render_template(
+        "recruiter/internships.html",
+        internships=internships
+    )

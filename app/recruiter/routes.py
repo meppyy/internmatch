@@ -84,7 +84,12 @@ def create_internship():
             flash("Internship title is required.", "error")
             return render_template("recruiter/create_internship.html")
 
-        description = request.form["description"]
+        description = request.form["description"].strip()
+
+        if not description:
+            flash("Internship description is required.", "error")
+            return render_template("recruiter/create_internship.html")
+
         location = request.form["location"]
         work_mode = request.form["work_mode"]
         duration = request.form["duration"]

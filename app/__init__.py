@@ -14,6 +14,9 @@ def create_app():
 
     from . import models
 
+    from .auth import auth
+    app.register_blueprint(auth)
+
     @app.route("/")
     def home():
         return "InternMatch is running!"

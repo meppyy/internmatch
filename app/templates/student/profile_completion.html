@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Profile Completion - InternMatch</title>
+</head>
+<body>
+
+    <h1>Profile Completion</h1>
+
+    <h2>{{ percentage }}% Complete</h2>
+
+    <p>
+        <a href="{{ url_for('student.profile') }}">Back to Profile</a>
+    </p>
+
+    <h3>Profile Sections</h3>
+
+    <ul>
+        {% for section, completed in sections.items() %}
+            <li>
+                {{ section }} -
+                {% if completed %}
+                    Complete
+                {% else %}
+                    Incomplete
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+
+</body>
+</html>

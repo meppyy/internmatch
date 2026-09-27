@@ -220,3 +220,36 @@ def view_resume():
         as_attachment=False,
         download_name=resume.file_name
     )
+
+@student.route("/profile/completion")
+@role_required("student")
+def profile_completion():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    if not student_profile:
+        return "Student profile not found", 404
+
+    sections = {
+        "Phone": bool(student_profile.phone),
+        "Education": bool(student_profile.education),
+        "Profile Summary": bool(student_profile.profile_summary),
+        "Skills": bool(student_profile.skills),
+        "Experience": bool(student_profile.experience),
+        "Projects": bool(student_profile.projects),
+        "Certifications": bool(student_profile.certifications),
+        "Resume": bool(student_profile.resume),
+    }
+
+    completed = sum(sections.values())
+    total = len(sections)
+
+    percentage = int((completed / total) * 100)
+
+    return render_template(
+        "student/profile_completion.html",
+        student=student_profile,
+        sections=sections,
+        percentage=percentage
+    )

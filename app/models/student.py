@@ -1,3 +1,4 @@
+from .skill import student_skills
 from datetime import datetime
 
 from ..extensions import db
@@ -21,6 +22,8 @@ class StudentProfile(db.Model):
     experience = db.Column(db.Text)
     projects = db.Column(db.Text)
     certifications = db.Column(db.Text)
+
+    skills = db.relationship("Skill", secondary=student_skills, backref="students")
 
     updated_at = db.Column(
         db.DateTime,

@@ -17,10 +17,16 @@ def dashboard():
     total_internships = Internship.query.filter_by(
         recruiter_id=recruiter_profile.recruiter_id
     ).count()
-
+    
+    active_internships = Internship.query.filter_by(
+        recruiter_id=recruiter_profile.recruiter_id,
+        status="Active"
+    ).count()
+    
     return render_template(
         "recruiter/dashboard.html",
         recruiter_name=current_user.name,
         company_name=recruiter_profile.company_name,
-        total_internships=total_internships
+        total_internships=total_internships,
+        active_internships=active_internships
     )

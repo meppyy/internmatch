@@ -24,6 +24,9 @@ def create_app(test_config=None):
     from .student import student
     app.register_blueprint(student)
 
+    from .recruiter import recruiter
+    app.register_blueprint(recruiter)
+
     @app.route("/")
     def home():
         return "InternMatch is running!"

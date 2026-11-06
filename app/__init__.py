@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 
 from .config import Config
@@ -9,15 +11,23 @@ def create_app(test_config=None):
 
     app.config.from_object(Config)
 
-    if test_config:
+    if test_config is not None:
         app.config.update(test_config)
 
+    # Ensure the required directories exist.
+    os.makedirs(app.instance_path, exist_ok=True)
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+    # Initialize extensions.
     db.init_app(app)
+
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
 
+    # Import models.
     from . import models
 
+    # Register blueprints.
     from .auth import auth
     app.register_blueprint(auth)
 

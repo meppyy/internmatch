@@ -11,6 +11,7 @@ class Resume(db.Model):
     student_id = db.Column(
         db.Integer,
         db.ForeignKey("student_profiles.student_id"),
+        unique=True,
         nullable=False
     )
 

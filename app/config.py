@@ -42,3 +42,17 @@ class Config:
     )
 
     ALLOWED_RESUME_EXTENSIONS = {"pdf", "doc", "docx"}
+
+    # Resume storage configuration
+    STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
+
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
+
+    SUPABASE_STORAGE_BUCKET = os.environ.get(
+        "SUPABASE_STORAGE_BUCKET",
+        "internmatch-resumes"
+    )
+
+    # Match the 10 MB limit configured in Supabase Storage.
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024

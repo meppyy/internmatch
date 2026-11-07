@@ -1,3 +1,4 @@
+
 import mimetypes
 import os
 from uuid import uuid4
@@ -5,6 +6,9 @@ from uuid import uuid4
 from flask import current_app
 from supabase import create_client
 from werkzeug.utils import secure_filename
+
+
+SUPABASE_PATH_PREFIX = "supabase://"
 
 
 def _get_supabase_bucket():
@@ -66,7 +70,8 @@ def save_resume_file(file_storage, student_id, original_filename):
             }
         )
 
-        return object_path
+        # Store the backend alongside the object path.
+        return SUPABASE_PATH_PREFIX + object_path
 
     if backend == "local":
         destination = os.path.join(
@@ -83,40 +88,28 @@ def save_resume_file(file_storage, student_id, original_filename):
 
 
 def read_resume_file(stored_path):
-    """Read a resume from the configured storage backend."""
+    """Read a resume using the backend recorded in its stored path."""
 
-    backend = current_app.config.get(
-        "STORAGE_BACKEND", "local"
-    ).lower()
+    if stored_path.startswith(SUPABASE_PATH_PREFIX):
+        object_path = stored_path[len(SUPABASE_PATH_PREFIX):]
+        return _get_supabase_bucket().download(object_path)
 
-    if backend == "supabase":
-        return _get_supabase_bucket().download(stored_path)
-
-    if backend == "local":
-        with open(stored_path, "rb") as resume_file:
-            return resume_file.read()
-
-    raise ValueError(f"Unsupported storage backend: {backend}")
+    # Existing local filesystem paths continue working.
+    with open(stored_path, "rb") as resume_file:
+        return resume_file.read()
 
 
 def delete_resume_file(stored_path):
-    """Delete a resume from the configured storage backend."""
+    """Delete a resume from the backend recorded in its stored path."""
 
     if not stored_path:
         return
 
-    backend = current_app.config.get(
-        "STORAGE_BACKEND", "local"
-    ).lower()
-
-    if backend == "supabase":
-        _get_supabase_bucket().remove([stored_path])
+    if stored_path.startswith(SUPABASE_PATH_PREFIX):
+        object_path = stored_path[len(SUPABASE_PATH_PREFIX):]
+        _get_supabase_bucket().remove([object_path])
         return
 
-    if backend == "local":
-        if os.path.isfile(stored_path):
-            os.remove(stored_path)
-
-        return
-
-    raise ValueError(f"Unsupported storage backend: {backend}")
+    # Existing local filesystem paths continue working.
+    if os.path.isfile(stored_path):
+        os.remove(stored_path)

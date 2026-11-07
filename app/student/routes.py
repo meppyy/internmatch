@@ -1,4 +1,11 @@
-import os
+import mimetypes
+from io import BytesIO
+
+from ..services.storage import (
+    save_resume_file,
+    read_resume_file,
+    delete_resume_file
+)
 
 from flask import render_template, request, redirect, url_for, current_app, send_file
 from flask_login import current_user
@@ -157,48 +164,77 @@ def upload_resume():
                 "ALLOWED_RESUME_EXTENSIONS"
             ]
 
-            if extension not in allowed_extensions:
+            if not filename or extension not in allowed_extensions:
                 return render_template(
                     "student/upload_resume.html",
-                     student=student_profile,
+                    student=student_profile,
                     error="Invalid file type. Please upload a PDF, DOC, or DOCX file."
                 )
-
-            upload_folder = current_app.config["UPLOAD_FOLDER"]
-
-            os.makedirs(upload_folder, exist_ok=True)
-
-            file_path = os.path.join(upload_folder, filename)
-            file.save(file_path)
 
             resume = Resume.query.filter_by(
                 student_id=student_profile.student_id
             ).first()
 
-            if resume:
-                old_file_path = resume.file_path
+            old_file_path = resume.file_path if resume else None
 
-                if os.path.exists(old_file_path) and old_file_path != file_path:
-                    os.remove(old_file_path)
-
-                resume.file_name = filename
-                resume.file_path = file_path
-            else:
-                resume = Resume(
-                    student_id=student_profile.student_id,
-                    file_name=filename,
-                    file_path=file_path
+            # Save the new resume through the configured storage service.
+            try:
+                new_file_path = save_resume_file(
+                    file,
+                    student_profile.student_id,
+                    filename
                 )
-                db.session.add(resume)
+            except ValueError as error:
+                return render_template(
+                    "student/upload_resume.html",
+                    student=student_profile,
+                    error=str(error)
+                )
 
-            db.session.commit()
+            # Update the database only after the file was saved.
+            try:
+                if resume:
+                    resume.file_name = filename
+                    resume.file_path = new_file_path
+                else:
+                    resume = Resume(
+                        student_id=student_profile.student_id,
+                        file_name=filename,
+                        file_path=new_file_path
+                    )
+                    db.session.add(resume)
 
-        return redirect(url_for("student.profile"))
+                db.session.commit()
+
+            except Exception:
+                db.session.rollback()
+
+                # Clean up the newly uploaded file if the DB update fails.
+                try:
+                    delete_resume_file(new_file_path)
+                except Exception:
+                    current_app.logger.exception(
+                        "Could not clean up the uploaded resume."
+                    )
+
+                raise
+
+            # Delete the previous resume only after the DB update succeeds.
+            if old_file_path and old_file_path != new_file_path:
+                try:
+                    delete_resume_file(old_file_path)
+                except Exception:
+                    current_app.logger.exception(
+                        "Could not delete the previous resume."
+                    )
+
+            return redirect(url_for("student.profile"))
 
     return render_template(
         "student/upload_resume.html",
         student=student_profile
     )
+
 
 @student.route("/resume")
 @role_required("student")
@@ -212,11 +248,16 @@ def view_resume():
 
     resume = student_profile.resume
 
-    if not os.path.exists(resume.file_path):
+    try:
+        file_content = read_resume_file(resume.file_path)
+    except FileNotFoundError:
         return "Resume file not found", 404
 
+    content_type, _ = mimetypes.guess_type(resume.file_name)
+
     return send_file(
-        resume.file_path,
+        BytesIO(file_content),
+        mimetype=content_type or "application/octet-stream",
         as_attachment=False,
         download_name=resume.file_name
     )

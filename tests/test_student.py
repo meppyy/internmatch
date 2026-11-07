@@ -260,3 +260,93 @@ def test_student_profile_completion(client, student_user):
 
     assert response.status_code == 200
     assert b"0% Complete" in response.data
+
+
+def test_student_resume_routes_use_supabase_storage(
+    client, student_user, monkeypatch
+):
+    from app.services import storage as storage_service
+
+    class FakeBucket:
+        def __init__(self):
+            self.files = {}
+
+        def upload(self, path, file, file_options):
+            self.files[path] = file
+
+        def download(self, path):
+            return self.files[path]
+
+        def remove(self, paths):
+            for path in paths:
+                self.files.pop(path, None)
+
+    class FakeStorage:
+        def __init__(self, bucket):
+            self.bucket = bucket
+
+        def from_(self, bucket_name):
+            assert bucket_name == "internmatch-resumes"
+            return self.bucket
+
+    class FakeClient:
+        def __init__(self, bucket):
+            self.storage = FakeStorage(bucket)
+
+    bucket = FakeBucket()
+
+    monkeypatch.setattr(
+        storage_service,
+        "create_client",
+        lambda url, key: FakeClient(bucket)
+    )
+
+    client.application.config.update({
+        "STORAGE_BACKEND": "supabase",
+        "SUPABASE_URL": "https://example.supabase.co",
+        "SUPABASE_SECRET_KEY": "test-secret",
+        "SUPABASE_STORAGE_BUCKET": "internmatch-resumes"
+    })
+
+    login_student(client, student_user)
+
+    # Upload the first resume.
+    first_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"first cloud resume"),
+                "first_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert first_response.status_code == 200
+    assert len(bucket.files) == 1
+
+    old_path = next(iter(bucket.files))
+
+    # Replace it with a second resume.
+    second_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"second cloud resume"),
+                "second_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert second_response.status_code == 200
+    assert len(bucket.files) == 1
+    assert old_path not in bucket.files
+
+    # Verify that the student can view the replacement.
+    response = client.get("/student/resume")
+
+    assert response.status_code == 200
+    assert response.data == b"second cloud resume"

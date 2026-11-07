@@ -1,7 +1,22 @@
 import os
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
+    APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+
+    SECRET_KEY = os.environ.get("SECRET_KEY") or (
+        "dev-secret-key" if APP_ENV != "production" else None
+    )
+
+    DEBUG = APP_ENV != "production"
+
+    # Secure session-cookie settings
+    SESSION_COOKIE_SECURE = APP_ENV == "production"
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+
+    REMEMBER_COOKIE_SECURE = APP_ENV == "production"
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
 
     BASE_DIR = os.path.dirname(
         os.path.dirname(os.path.abspath(__file__))

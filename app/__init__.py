@@ -14,6 +14,39 @@ def create_app(test_config=None):
     if test_config is not None:
         app.config.update(test_config)
 
+        
+        # Recalculate environment-dependent settings after test overrides.
+        app_environment = app.config.get(
+            "APP_ENV", "development"
+        ).strip().lower()
+
+        is_production = app_environment == "production"
+
+        app.config.update({
+            "APP_ENV": app_environment,
+            "DEBUG": not is_production,
+
+            "SESSION_COOKIE_SECURE": is_production,
+            "SESSION_COOKIE_HTTPONLY": True,
+            "SESSION_COOKIE_SAMESITE": "Lax",
+
+            "REMEMBER_COOKIE_SECURE": is_production,
+            "REMEMBER_COOKIE_HTTPONLY": True,
+            "REMEMBER_COOKIE_SAMESITE": "Lax",
+        })
+
+
+        if (
+            app.config.get("APP_ENV") == "production"
+            and (
+                not app.config.get("SECRET_KEY")
+                or app.config.get("SECRET_KEY") == "dev-secret-key"
+            )
+        ):
+            raise RuntimeError(
+                "SECRET_KEY must be configured in production."
+            )
+
     # Ensure the required directories exist.
     os.makedirs(app.instance_path, exist_ok=True)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)

@@ -1,6 +1,7 @@
 import pytest
 
 from app import create_app
+from app.config import Config
 
 
 def test_production_requires_secret_key():
@@ -31,3 +32,10 @@ def test_development_keeps_local_configuration():
 
     assert app.config["DEBUG"] is True
     assert app.config["SESSION_COOKIE_SECURE"] is False
+
+def test_production_requires_secret_without_test_config(monkeypatch):
+    monkeypatch.setattr(Config, "APP_ENV", "production")
+    monkeypatch.setattr(Config, "SECRET_KEY", None)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        create_app()

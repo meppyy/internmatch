@@ -289,3 +289,33 @@ def test_application(session):
     assert application.internship_id == internship.internship_id
     assert application.resume_id == resume.resume_id
     assert application.status == "Applied"
+
+def test_internship_defaults_to_draft(session):
+    recruiter_user = User(
+        name="Recruiter",
+        email="draft-default@example.com",
+        password_hash="hash",
+        role="recruiter",
+    )
+
+    session.add(recruiter_user)
+    session.flush()
+
+    recruiter = RecruiterProfile(
+        user_id=recruiter_user.user_id,
+        company_name="Test Company",
+    )
+
+    session.add(recruiter)
+    session.flush()
+
+    internship = Internship(
+        recruiter_id=recruiter.recruiter_id,
+        title="Draft by Default",
+        company_name="Test Company",
+    )
+
+    session.add(internship)
+    session.commit()
+
+    assert internship.status == "Draft"

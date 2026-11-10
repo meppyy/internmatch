@@ -1,0 +1,104 @@
+<header class="app-site-header">
+    <nav class="app-navbar" aria-label="Main navigation">
+
+        <a class="app-brand" href="{{ url_for('home') }}">
+            <span class="app-brand-mark">IM</span>
+            <span>InternMatch</span>
+        </a>
+
+        <button
+            class="app-nav-toggle"
+            type="button"
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+            aria-controls="app-navigation"
+        >
+            <span class="menu-icon">☰</span>
+            <span>Menu</span>
+        </button>
+
+        <div class="app-nav-links" id="app-navigation">
+
+            <a href="{{ url_for('home') }}">Home</a>
+
+            {% if current_user.is_authenticated %}
+
+                {% if current_user.role == "student" %}
+
+                    <a href="{{ url_for('student.dashboard') }}">
+                        Dashboard
+                    </a>
+
+                    <a href="{{ url_for('student.profile') }}">
+                        Profile
+                    </a>
+
+                    <a href="{{ url_for('student.skills') }}">
+                        Skills
+                    </a>
+
+                    <a href="{{ url_for('student.upload_resume') }}">
+                        Resume
+                    </a>
+
+                {% elif current_user.role == "recruiter" %}
+
+                    <a href="{{ url_for('recruiter.dashboard') }}">
+                        Dashboard
+                    </a>
+
+                    <a href="{{ url_for('recruiter.profile') }}">
+                        Profile
+                    </a>
+
+                    <a href="{{ url_for('recruiter.internships') }}">
+                        My Internships
+                    </a>
+
+                    <a href="{{ url_for('recruiter.create_internship') }}">
+                        Create Internship
+                    </a>
+
+                {% endif %}
+
+                <form
+                    method="POST"
+                    action="{{ url_for('auth.logout') }}"
+                    class="app-nav-logout"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+                    <button type="submit">Log Out</button>
+                </form>
+
+            {% else %}
+
+                <a href="{{ url_for('home') }}#students">
+                    For Students
+                </a>
+
+                <a href="{{ url_for('home') }}#recruiters">
+                    For Recruiters
+                </a>
+
+                <a href="{{ url_for('auth.login') }}" aria-label="Log In">Login</a>
+
+                <a class="app-nav-register"
+                   href="{{ url_for('auth.register') }}">
+                    Register
+                </a>
+
+            {% endif %}
+
+        </div>
+    </nav>
+</header>
+
+<script
+    defer
+    src="{{ url_for('static', filename='js/navigation.js') }}"
+></script>

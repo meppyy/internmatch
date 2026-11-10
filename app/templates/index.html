@@ -16,34 +16,7 @@
 
 <body>
     <header class="site-header">
-        <nav class="navbar container" aria-label="Main navigation">
-            <a class="brand" href="{{ url_for('home') }}">
-                <span class="brand-mark">IM</span>
-                <span>InternMatch</span>
-            </a>
-
-            <div class="nav-links">
-                <a href="#students">For Students</a>
-                <a href="#recruiters">For Recruiters</a>
-
-                {% if current_user.is_authenticated %}
-                    {% if current_user.role == "student" %}
-                        <a class="nav-button" href="{{ url_for('student.dashboard') }}">
-                            My Dashboard
-                        </a>
-                    {% elif current_user.role == "recruiter" %}
-                        <a class="nav-button" href="{{ url_for('recruiter.dashboard') }}">
-                            My Dashboard
-                        </a>
-                    {% endif %}
-                {% else %}
-                    <a href="{{ url_for('auth.login') }}">Log In</a>
-                    <a class="nav-button" href="{{ url_for('auth.register') }}">
-                        Get Started
-                    </a>
-                {% endif %}
-            </div>
-        </nav>
+        {% include "_navigation.html" %}
     </header>
 
     <main>

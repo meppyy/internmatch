@@ -75,3 +75,9 @@ def test_valid_csrf_token_allows_post(client):
     # The request passes CSRF validation and reaches the login route.
     assert response.status_code == 302
     assert "/auth/login" in response.headers["Location"]
+
+def test_logout_without_csrf_token_is_rejected(client):
+    response = client.post("/auth/logout")
+
+    assert response.status_code == 400
+    assert b"CSRF" in response.data

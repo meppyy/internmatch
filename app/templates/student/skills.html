@@ -41,6 +41,7 @@
                         action="{{ url_for('student.remove_skill', skill_id=skill.skill_id) }}"
                         style="display:inline;"
                     >
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit">Remove</button>
                     </form>
                 </li>

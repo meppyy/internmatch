@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Applications - InternMatch</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>My Applications</h1>
+
+        {% if applications %}
+
+            {% for application in applications %}
+                <article>
+                    <h2>{{ application.internship.title }}</h2>
+
+                    <p>
+                        <strong>Company:</strong>
+                        {{ application.internship.company_name }}
+                    </p>
+
+                    <p>
+                        <strong>Application Date:</strong>
+                        {{ application.application_date.strftime("%d %b %Y") }}
+                    </p>
+
+                    <p>
+                        <strong>Status:</strong>
+                        {{ application.status }}
+                    </p>
+
+                    <p>
+                        <strong>Internship Status:</strong>
+                        {{ application.internship.status }}
+                    </p>
+                </article>
+
+                <hr>
+            {% endfor %}
+
+        {% else %}
+            <p>You haven't applied to any internships yet.</p>
+
+            <a href="{{ url_for('student.browse_internships') }}">
+                Browse Internships
+            </a>
+        {% endif %}
+
+    </main>
+
+</body>
+</html>

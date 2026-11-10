@@ -416,3 +416,21 @@ def apply_to_internship(internship_id):
         "student.internship_details",
         internship_id=internship_id
     ))
+
+@student.route("/applications")
+@role_required("student")
+def application_history():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    applications = Application.query.filter_by(
+        student_id=student_profile.student_id
+    ).order_by(
+        Application.application_date.desc()
+    ).all()
+
+    return render_template(
+        "student/applications.html",
+        applications=applications
+    )

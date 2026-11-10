@@ -651,3 +651,94 @@ def test_student_cannot_apply_twice(
         ).count()
 
         assert count == 1
+
+def test_student_application_history_requires_login(client):
+    response = client.get("/student/applications")
+
+    assert response.status_code == 302
+
+
+def test_student_can_view_only_their_application_history(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "history-recruiter@test.com",
+        [
+            {
+                "title": "My Active Internship",
+                "status": "Active"
+            },
+            {
+                "title": "My Closed Internship",
+                "status": "Closed"
+            },
+            {
+                "title": "Another Student Internship",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        other_user = User(
+            name="Another Student",
+            email="another-history-student@test.com",
+            password_hash="test-password",
+            role="student"
+        )
+        db.session.add(other_user)
+        db.session.flush()
+
+        other_profile = StudentProfile(
+            user_id=other_user.user_id
+        )
+        db.session.add(other_profile)
+        db.session.flush()
+
+        applications = [
+            Application(
+                student_id=student_profile.student_id,
+                internship_id=internship_ids[0],
+                status="Under Review"
+            ),
+            Application(
+                student_id=student_profile.student_id,
+                internship_id=internship_ids[1],
+                status="Rejected"
+            ),
+            Application(
+                student_id=other_profile.student_id,
+                internship_id=internship_ids[2],
+                status="Applied"
+            )
+        ]
+
+        db.session.add_all(applications)
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/applications")
+
+    assert response.status_code == 200
+    assert b"My Active Internship" in response.data
+    assert b"My Closed Internship" in response.data
+    assert b"Under Review" in response.data
+    assert b"Rejected" in response.data
+    assert b"Another Student Internship" not in response.data
+
+
+def test_student_sees_empty_application_history(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.get("/student/applications")
+
+    assert response.status_code == 200
+    assert b"You haven't applied to any internships yet." in response.data

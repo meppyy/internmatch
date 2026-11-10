@@ -66,6 +66,9 @@ def create_app(test_config=None):
     from .recruiter import recruiter
     app.register_blueprint(recruiter)
 
+    from .pwa import pwa
+    app.register_blueprint(pwa)
+
     @app.route("/")
     def home():
         return render_template(

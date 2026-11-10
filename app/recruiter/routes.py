@@ -2,6 +2,7 @@ from datetime import datetime, date
 from flask import render_template, request, flash, abort
 from flask_login import current_user
 
+from ..models.application import Application
 from ..extensions import db
 from ..auth.decorators import role_required
 from . import recruiter
@@ -243,4 +244,31 @@ def internship_details(internship_id):
     return render_template(
         "recruiter/internship_details.html",
         internship=internship
+    )
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications"
+)
+@role_required("recruiter")
+def internship_applications(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Confirm that this internship belongs to the logged-in recruiter.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    applications = Application.query.filter_by(
+        internship_id=internship.internship_id
+    ).order_by(
+        Application.application_date.desc()
+    ).all()
+
+    return render_template(
+        "recruiter/applications.html",
+        internship=internship,
+        applications=applications
     )

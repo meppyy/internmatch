@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applicants - InternMatch</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>Applicants</h1>
+
+        <h2>{{ internship.title }}</h2>
+
+        <p>
+            <strong>Company:</strong>
+            {{ internship.company_name }}
+        </p>
+
+        {% if applications %}
+
+            <p>Total Applicants: {{ applications|length }}</p>
+
+            {% for application in applications %}
+                <article>
+                    <h3>{{ application.student.user.name }}</h3>
+
+                    <p>
+                        <strong>Email:</strong>
+                        {{ application.student.user.email }}
+                    </p>
+
+                    <p>
+                        <strong>Phone:</strong>
+                        {{ application.student.phone or "Not provided" }}
+                    </p>
+
+                    <p>
+                        <strong>Education:</strong>
+                        {{ application.student.education or "Not provided" }}
+                    </p>
+
+                    <p>
+                        <strong>Application Date:</strong>
+                        {{ application.application_date.strftime("%d %b %Y") }}
+                    </p>
+
+                    <p>
+                        <strong>Application Status:</strong>
+                        {{ application.status }}
+                    </p>
+
+                    <h4>Skills</h4>
+
+                    {% if application.student.skills %}
+                        <ul>
+                            {% for skill in application.student.skills %}
+                                <li>{{ skill.skill_name }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No skills added by this student.</p>
+                    {% endif %}
+
+                    <h4>Resume</h4>
+
+                    {% if application.resume %}
+                        <p>{{ application.resume.file_name }}</p>
+                    {% else %}
+                        <p>No resume attached.</p>
+                    {% endif %}
+                </article>
+
+                <hr>
+            {% endfor %}
+
+        {% else %}
+            <p>No applications have been submitted yet.</p>
+        {% endif %}
+
+        <a href="{{ url_for('recruiter.internships') }}">
+            Back to My Internships
+        </a>
+    </main>
+
+</body>
+</html>

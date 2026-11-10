@@ -319,3 +319,69 @@ def test_internship_defaults_to_draft(session):
     session.commit()
 
     assert internship.status == "Draft"
+
+def test_application_student_internship_pair_must_be_unique(session):
+    student_user = User(
+        name="Student",
+        email="unique-application-student@test.com",
+        password_hash="hash",
+        role="student"
+    )
+
+    recruiter_user = User(
+        name="Recruiter",
+        email="unique-application-recruiter@test.com",
+        password_hash="hash",
+        role="recruiter"
+    )
+
+    session.add_all([student_user, recruiter_user])
+    session.flush()
+
+    student = StudentProfile(user_id=student_user.user_id)
+
+    recruiter = RecruiterProfile(
+        user_id=recruiter_user.user_id,
+        company_name="Test Company"
+    )
+
+    session.add_all([student, recruiter])
+    session.flush()
+
+    resume = Resume(
+        student_id=student.student_id,
+        file_name="resume.pdf",
+        file_path="uploads/resume.pdf"
+    )
+
+    internship = Internship(
+        recruiter_id=recruiter.recruiter_id,
+        title="Unique Application Test",
+        company_name="Test Company",
+        status="Active"
+    )
+
+    session.add_all([resume, internship])
+    session.flush()
+
+    first_application = Application(
+        student_id=student.student_id,
+        internship_id=internship.internship_id,
+        resume_id=resume.resume_id
+    )
+
+    second_application = Application(
+        student_id=student.student_id,
+        internship_id=internship.internship_id,
+        resume_id=resume.resume_id
+    )
+
+    session.add(first_application)
+    session.commit()
+
+    session.add(second_application)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+    session.rollback()

@@ -4,7 +4,7 @@ from io import BytesIO
 from app import create_app
 from app.extensions import db
 from app.models import User, StudentProfile
-from app.models import Internship, RecruiterProfile
+from app.models import Internship, RecruiterProfile, Application, Resume
 
 
 @pytest.fixture
@@ -545,3 +545,109 @@ def test_student_can_view_active_internship_details(
     )
 
     assert closed_response.status_code == 404
+
+def test_student_can_apply_without_resume(client, student_user, app):
+    internship_ids = create_test_internships(
+        app,
+        "apply-no-resume@test.com",
+        [{
+            "title": "Application Test Internship",
+            "status": "Active"
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply"
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = Application.query.filter_by(
+            student_id=StudentProfile.query.filter_by(
+                user_id=student_user.user_id
+            ).first().student_id,
+            internship_id=internship_id
+        ).one()
+
+        assert application.resume_id is None
+        assert application.status == "Applied"
+
+def test_student_application_attaches_existing_resume(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-with-resume@test.com",
+        [{
+            "title": "Resume Application Internship",
+            "status": "Active"
+        }]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        resume = Resume(
+            student_id=profile.student_id,
+            file_name="student_resume.pdf",
+            file_path="uploads/student_resume.pdf"
+        )
+
+        db.session.add(resume)
+        db.session.commit()
+        resume_id = resume.resume_id
+
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_ids[0]}/apply"
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = Application.query.filter_by(
+            internship_id=internship_ids[0]
+        ).one()
+
+        assert application.resume_id == resume_id
+
+def test_student_cannot_apply_twice(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-duplicate@test.com",
+        [{
+            "title": "Duplicate Application Internship",
+            "status": "Active"
+        }]
+    )
+
+    login_student(client, student_user)
+
+    url = f"/student/internships/{internship_ids[0]}/apply"
+
+    first_response = client.post(url)
+    second_response = client.post(url)
+
+    assert first_response.status_code == 302
+    assert second_response.status_code == 302
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_ids[0]
+        ).count()
+
+        assert count == 1

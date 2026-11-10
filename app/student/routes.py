@@ -11,6 +11,10 @@ from flask import render_template, request, redirect, url_for, current_app, send
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 
+from flask import flash
+from sqlalchemy.exc import IntegrityError
+from ..models.application import Application
+
 from ..models.resume import Resume
 from . import student
 from ..auth.decorators import role_required
@@ -344,7 +348,71 @@ def internship_details(internship_id):
         status="Active"
     ).first_or_404()
 
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    existing_application = Application.query.filter_by(
+        student_id=student_profile.student_id,
+        internship_id=internship_id
+    ).first()
+
     return render_template(
         "student/internship_details.html",
-        internship=internship
+        internship=internship,
+        has_applied=existing_application is not None
     )
+
+
+@student.route(
+    "/internships/<int:internship_id>/apply",
+    methods=["POST"]
+)
+@role_required("student")
+def apply_to_internship(internship_id):
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        status="Active"
+    ).first_or_404()
+
+    existing_application = Application.query.filter_by(
+        student_id=student_profile.student_id,
+        internship_id=internship_id
+    ).first()
+
+    if existing_application:
+        flash("You have already applied to this internship.", "error")
+        return redirect(url_for(
+            "student.internship_details",
+            internship_id=internship_id
+        ))
+
+    resume = Resume.query.filter_by(
+        student_id=student_profile.student_id
+    ).first()
+
+    application = Application(
+        student_id=student_profile.student_id,
+        internship_id=internship_id,
+        resume_id=resume.resume_id if resume else None,
+        status="Applied"
+    )
+
+    db.session.add(application)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You have already applied to this internship.", "error")
+    else:
+        flash("Your application was submitted successfully.", "success")
+
+    return redirect(url_for(
+        "student.internship_details",
+        internship_id=internship_id
+    ))

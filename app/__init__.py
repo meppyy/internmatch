@@ -1,6 +1,7 @@
 import os
 
-from flask import Flask
+from flask import Flask, render_template
+from datetime import datetime
 
 from .config import Config
 from .extensions import db, login_manager, migrate, csrf
@@ -67,7 +68,10 @@ def create_app(test_config=None):
 
     @app.route("/")
     def home():
-        return "InternMatch is running!"
+        return render_template(
+            "index.html",
+            current_year=datetime.now().year
+        )
 
     return app
 

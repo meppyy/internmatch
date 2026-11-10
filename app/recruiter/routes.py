@@ -1,5 +1,8 @@
+import mimetypes
+from io import BytesIO
+
 from datetime import datetime, date
-from flask import render_template, request, flash, abort, redirect, url_for
+from flask import render_template, request, flash, abort, redirect, url_for, send_file
 from flask_login import current_user
 
 from ..models.application import Application
@@ -10,6 +13,7 @@ from ..models.recruiter import RecruiterProfile
 from ..models.internship import Internship
 from ..models.skill import Skill
 from app.models import internship
+from ..services.storage import read_resume_file
 
 
 @recruiter.route("/dashboard")
@@ -314,3 +318,47 @@ def update_application_status(internship_id, application_id):
         "recruiter.internship_applications",
         internship_id=internship_id
     ))
+
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications/"
+    "<int:application_id>/resume"
+)
+@role_required("recruiter")
+def view_applicant_resume(internship_id, application_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Verify that the recruiter owns this internship.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    # Verify that this application belongs to the internship.
+    application = Application.query.filter_by(
+        application_id=application_id,
+        internship_id=internship.internship_id
+    ).first_or_404()
+
+    if not application.resume:
+        abort(404)
+
+    try:
+        file_content = read_resume_file(
+            application.resume.file_path
+        )
+    except FileNotFoundError:
+        abort(404)
+
+    content_type, _ = mimetypes.guess_type(
+        application.resume.file_name
+    )
+
+    return send_file(
+        BytesIO(file_content),
+        mimetype=content_type or "application/octet-stream",
+        as_attachment=False,
+        download_name=application.resume.file_name
+    )

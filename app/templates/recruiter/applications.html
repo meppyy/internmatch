@@ -105,6 +105,15 @@
 
                     {% if application.resume %}
                         <p>{{ application.resume.file_name }}</p>
+
+                        <a href="{{ url_for(
+                            'recruiter.view_applicant_resume',
+                            internship_id=internship.internship_id,
+                            application_id=application.application_id
+                        ) }}" target="_blank" rel="noopener">
+                            View Resume
+                        </a>
+
                     {% else %}
                         <p>No resume attached.</p>
                     {% endif %}

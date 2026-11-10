@@ -352,3 +352,90 @@ def test_recruiter_cannot_set_invalid_application_status(
     with app.app_context():
         application = db.session.get(Application, application_id)
         assert application.status == "Under Review"
+
+
+def test_recruiter_can_view_only_authorized_applicant_resumes(
+    client, app, tmp_path
+):
+    owner_email, internship_id = create_recruiter_internship(
+        app,
+        "resume-owner@test.com",
+        "Resume Access Internship"
+    )
+
+    _, other_internship_id = create_recruiter_internship(
+        app,
+        "resume-other-owner@test.com",
+        "Other Recruiter's Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    resume_content = b"%PDF-1.4 test resume content"
+    resume_path = tmp_path / "applicant_resume.pdf"
+    resume_path.write_bytes(resume_content)
+
+    with app.app_context():
+        application = db.session.get(Application, application_id)
+
+        application.resume.file_path = str(resume_path)
+
+        other_application = Application(
+            student_id=application.student_id,
+            internship_id=other_internship_id,
+            resume_id=application.resume_id,
+            status="Applied"
+        )
+
+        db.session.add(other_application)
+        db.session.commit()
+
+        other_application_id = other_application.application_id
+
+    login(client, owner_email, "TestPassword123")
+
+    resume_url = (
+        f"/recruiter/internships/{internship_id}/applications/"
+        f"{application_id}/resume"
+    )
+
+    response = client.get(resume_url)
+
+    assert response.status_code == 200
+    assert response.data == resume_content
+    assert response.mimetype == "application/pdf"
+
+    applicants_page = client.get(
+        f"/recruiter/internships/{internship_id}/applications"
+    )
+    assert b"View Resume" in applicants_page.data
+
+    # Another recruiter must not access the same student's resume
+    # through an internship they do not own.
+    other_response = client.get(
+        f"/recruiter/internships/{other_internship_id}/applications/"
+        f"{other_application_id}/resume"
+    )
+    assert other_response.status_code == 404
+
+    # An application without an attached resume has no file to serve.
+    with app.app_context():
+        application = db.session.get(Application, application_id)
+        application.resume_id = None
+        db.session.commit()
+    
+    missing_resume_response = client.get(resume_url)
+    assert missing_resume_response.status_code == 404
+
+    # Students must not use the recruiter-only resume endpoint.
+    student_client = app.test_client()
+    login(
+        student_client,
+        "applicant@example.com",
+        "TestPassword123"
+    )
+
+    student_response = student_client.get(resume_url)
+    assert student_response.status_code == 403

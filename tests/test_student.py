@@ -4,6 +4,7 @@ from io import BytesIO
 from app import create_app
 from app.extensions import db
 from app.models import User, StudentProfile
+from app.models import Internship, RecruiterProfile
 
 
 @pytest.fixture
@@ -351,3 +352,68 @@ def test_student_resume_routes_use_supabase_storage(
 
     assert response.status_code == 200
     assert response.data == b"second cloud resume"
+
+def test_student_can_browse_active_internships(
+    client, student_user, app
+):
+    with app.app_context():
+        recruiter_user = User(
+            name="Test Recruiter",
+            email="browse-recruiter@test.com",
+            password_hash="test-password",
+            role="recruiter"
+        )
+
+        db.session.add(recruiter_user)
+        db.session.flush()
+
+        recruiter = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="Test Company"
+        )
+
+        db.session.add(recruiter)
+        db.session.flush()
+
+        internships = [
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Active Python Internship",
+                company_name="Test Company",
+                status="Active"
+            ),
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Draft Python Internship",
+                company_name="Test Company",
+                status="Draft"
+            ),
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Closed Python Internship",
+                company_name="Test Company",
+                status="Closed"
+            )
+        ]
+
+        db.session.add_all(internships)
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+    assert b"Active Python Internship" in response.data
+    assert b"Draft Python Internship" not in response.data
+    assert b"Closed Python Internship" not in response.data
+
+def test_student_sees_empty_state_when_no_active_internships(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+    assert b"No active internships are available right now." in response.data

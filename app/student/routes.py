@@ -17,6 +17,7 @@ from ..auth.decorators import role_required
 from ..models.student import StudentProfile
 from ..extensions import db
 from ..models.skill import Skill
+from ..models.internship import Internship
 
 @student.route("/dashboard")
 @role_required("student")
@@ -293,4 +294,18 @@ def profile_completion():
         student=student_profile,
         sections=sections,
         percentage=percentage
+    )
+
+@student.route("/internships")
+@role_required("student")
+def browse_internships():
+    internships = Internship.query.filter_by(
+        status="Active"
+    ).order_by(
+        Internship.created_at.desc()
+    ).all()
+
+    return render_template(
+        "student/internships.html",
+        internships=internships
     )

@@ -72,6 +72,7 @@ def test_student_navigation_shows_student_links(client, app):
     assert b'action="/auth/logout"' in response.data
     assert b'method="POST"' in response.data
     assert b'name="csrf_token"' in response.data
+    assert b"Browse Internships" in response.data
 
 
 def test_recruiter_navigation_shows_recruiter_links(client, app):

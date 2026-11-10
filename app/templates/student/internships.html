@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Internships - InternMatch</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>Available Internships</h1>
+
+        {% if internships %}
+
+            {% for internship in internships %}
+                <article>
+                    <h2>{{ internship.title }}</h2>
+
+                    <p>
+                        <strong>Company:</strong>
+                        {{ internship.company_name }}
+                    </p>
+
+                    <p>
+                        <strong>Location:</strong>
+                        {{ internship.location or "Not specified" }}
+                    </p>
+
+                    <p>
+                        <strong>Work Mode:</strong>
+                        {{ internship.work_mode or "Not specified" }}
+                    </p>
+
+                    <p>
+                        <strong>Duration:</strong>
+                        {{ internship.duration or "Not specified" }}
+                    </p>
+
+                    <p>
+                        <strong>Stipend:</strong>
+                        {{ internship.stipend or "Not specified" }}
+                    </p>
+
+                    <p>
+                        <strong>Deadline:</strong>
+                        {{ internship.deadline or "Not specified" }}
+                    </p>
+
+                    <p>{{ internship.description or "No description provided." }}</p>
+
+                    <h3>Required Skills</h3>
+
+                    {% if internship.skills %}
+                        <ul>
+                            {% for skill in internship.skills %}
+                                <li>{{ skill.skill_name }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No skills specified.</p>
+                    {% endif %}
+                </article>
+
+                <hr>
+            {% endfor %}
+
+        {% else %}
+            <p>No active internships are available right now.</p>
+        {% endif %}
+
+    </main>
+
+</body>
+</html>

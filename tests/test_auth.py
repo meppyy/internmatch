@@ -169,7 +169,25 @@ def test_login_success(client, app):
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
+    assert response.headers["Location"].endswith("/student/dashboard")
+
+def test_recruiter_login_redirects_to_dashboard(client, app):
+    with app.app_context():
+        create_user(
+            db.session,
+            email="recruiter-login@example.com",
+            password="TestPassword123",
+            role="recruiter",
+        )
+
+    response = login(
+        client,
+        "recruiter-login@example.com",
+        "TestPassword123",
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/recruiter/dashboard")
 
 
 def test_login_wrong_password(client, app):

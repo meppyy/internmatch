@@ -103,6 +103,13 @@ def login():
         login_user(user)
 
         flash("Login successful.", "success")
+
+        if user.role == "student":
+            return redirect(url_for("student.dashboard"))
+
+        elif user.role == "recruiter":
+            return redirect(url_for("recruiter.dashboard"))
+
         return redirect(url_for("home"))
 
     return render_template("auth/login.html")

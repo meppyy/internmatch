@@ -55,6 +55,40 @@
                         {{ application.status }}
                     </p>
 
+
+<form
+    method="POST"
+    action="{{ url_for(
+        'recruiter.update_application_status',
+        internship_id=internship.internship_id,
+        application_id=application.application_id
+    ) }}"
+>
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <label for="status-{{ application.application_id }}">
+        Update Application Status:
+    </label>
+
+    <select
+        id="status-{{ application.application_id }}"
+        name="status"
+        required
+    >
+        <option value="Under Review">Under Review</option>
+        <option value="Shortlisted">Shortlisted</option>
+        <option value="Selected">Selected</option>
+        <option value="Rejected">Rejected</option>
+    </select>
+
+    <button type="submit">Change Status</button>
+</form>
+
+
                     <h4>Skills</h4>
 
                     {% if application.student.skills %}

@@ -184,6 +184,8 @@ def create_applicant_for_internship(app, internship_id):
         db.session.add(application)
         db.session.commit()
 
+        return application.application_id
+
 
 def test_recruiter_can_view_applicants_for_own_internship(
     client, app
@@ -257,3 +259,96 @@ def test_recruiter_sees_empty_applicant_list(
 
     assert response.status_code == 200
     assert b"No applications have been submitted yet." in response.data
+
+
+def test_recruiter_can_update_application_status(client, app):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "status-owner@test.com",
+        "Status Test Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/applications/"
+        f"{application_id}/status",
+        data={"status": "Shortlisted"}
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = db.session.get(Application, application_id)
+        assert application.status == "Shortlisted"
+
+    page = client.get(
+        f"/recruiter/internships/{internship_id}/applications"
+    )
+    assert b"Shortlisted" in page.data
+    assert b"Change Status" in page.data
+
+
+def test_recruiter_cannot_update_another_recruiters_application(
+    client, app
+):
+    owner_email, _ = create_recruiter_internship(
+        app,
+        "status-first-owner@test.com",
+        "First Owner Internship"
+    )
+
+    _, other_internship_id = create_recruiter_internship(
+        app,
+        "status-second-owner@test.com",
+        "Second Owner Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, other_internship_id
+    )
+
+    login(client, owner_email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{other_internship_id}/applications/"
+        f"{application_id}/status",
+        data={"status": "Rejected"}
+    )
+
+    assert response.status_code == 404
+
+    with app.app_context():
+        application = db.session.get(Application, application_id)
+        assert application.status == "Under Review"
+
+def test_recruiter_cannot_set_invalid_application_status(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "status-invalid-owner@test.com",
+        "Invalid Status Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/applications/"
+        f"{application_id}/status",
+        data={"status": "Invalid Status"}
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = db.session.get(Application, application_id)
+        assert application.status == "Under Review"

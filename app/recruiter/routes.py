@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from flask import render_template, request, flash, abort
+from flask import render_template, request, flash, abort, redirect, url_for
 from flask_login import current_user
 
 from ..models.application import Application
@@ -272,3 +272,45 @@ def internship_applications(internship_id):
         internship=internship,
         applications=applications
     )
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications/"
+    "<int:application_id>/status",
+    methods=["POST"]
+)
+@role_required("recruiter")
+def update_application_status(internship_id, application_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    application = Application.query.filter_by(
+        application_id=application_id,
+        internship_id=internship.internship_id
+    ).first_or_404()
+
+    new_status = request.form.get("status", "").strip()
+
+    allowed_statuses = {
+        "Under Review",
+        "Shortlisted",
+        "Selected",
+        "Rejected"
+    }
+
+    if new_status not in allowed_statuses:
+        flash("Invalid application status.", "error")
+    else:
+        application.status = new_status
+        db.session.commit()
+        flash("Application status updated successfully.", "success")
+
+    return redirect(url_for(
+        "recruiter.internship_applications",
+        internship_id=internship_id
+    ))

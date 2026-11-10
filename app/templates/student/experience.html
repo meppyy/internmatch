@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Experience & Projects - InternMatch</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
-<body>
+<body class="app-page">
 
     <h1>Experience, Projects & Certifications</h1>
 
@@ -13,6 +15,8 @@
     </p>
 
     <form method="POST" action="{{ url_for('student.edit_profile') }}">
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <h2>Experience</h2>
         <textarea

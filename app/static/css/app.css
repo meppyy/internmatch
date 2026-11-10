@@ -1,0 +1,195 @@
+:root {
+    --app-navy: #11152b;
+    --app-purple: #8175f2;
+    --app-bg: #f6f7fc;
+    --app-surface: #ffffff;
+    --app-text: #252940;
+    --app-muted: #747990;
+    --app-border: #e6e8f0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.app-page {
+    width: min(100% - 32px, 1000px);
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: clamp(24px, 5vw, 52px) 0;
+    color: var(--app-text);
+    background: var(--app-bg);
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.app-page h1 {
+    margin: 0 0 24px;
+    color: var(--app-navy);
+    font-size: clamp(1.8rem, 5vw, 2.6rem);
+    line-height: 1.2;
+    letter-spacing: -1px;
+    overflow-wrap: anywhere;
+}
+
+.app-page h2 {
+    margin-top: 27px;
+    color: var(--app-navy);
+    font-size: clamp(1.2rem, 3vw, 1.55rem);
+}
+
+.app-page h3 {
+    margin-top: 22px;
+    color: var(--app-navy);
+}
+
+.app-page p {
+    color: var(--app-muted);
+    overflow-wrap: anywhere;
+}
+
+.app-page a {
+    color: #6256cf;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.app-page a:hover {
+    text-decoration: underline;
+}
+
+.app-page form {
+    width: 100%;
+    max-width: 760px;
+    margin: 22px 0;
+    padding: clamp(18px, 3.5vw, 30px);
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    background: var(--app-surface);
+    box-shadow: 0 8px 28px rgba(23, 29, 65, 0.05);
+}
+
+.app-page label {
+    display: block;
+    margin: 15px 0 7px;
+    color: var(--app-text);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+.app-page input:not([type="hidden"]),
+.app-page textarea,
+.app-page select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-height: 45px;
+    padding: 11px 13px;
+    border: 1px solid #dfe2ec;
+    border-radius: 9px;
+    outline: none;
+    background: #fff;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 0.95rem;
+}
+
+.app-page textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.app-page input:focus,
+.app-page textarea:focus,
+.app-page select:focus {
+    border-color: var(--app-purple);
+    box-shadow: 0 0 0 3px rgba(129, 117, 242, 0.13);
+}
+
+.app-page input[type="file"] {
+    padding: 9px;
+}
+
+.app-page button {
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 9px;
+    color: #fff;
+    background: var(--app-navy);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.app-page button:hover {
+    background: #292f53;
+}
+
+.app-page li {
+    margin-block: 9px;
+    overflow-wrap: anywhere;
+}
+
+.app-page hr {
+    border: 0;
+    border-top: 1px solid var(--app-border);
+    margin-block: 22px;
+}
+
+/* Compact nested skill-removal forms. */
+.app-page li form {
+    display: inline-flex;
+    width: auto;
+    margin: 0 0 0 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.app-page li form button {
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+    body.app-page {
+        width: calc(100% - 28px);
+        padding-block: 25px;
+        font-size: 15px;
+    }
+
+    .app-page form {
+        padding: 18px;
+        border-radius: 12px;
+    }
+
+    .app-page button {
+        width: 100%;
+        min-height: 46px;
+    }
+
+    .app-page li form button {
+        width: auto;
+    }
+
+    .app-page input:not([type="hidden"]),
+    .app-page textarea,
+    .app-page select {
+        font-size: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

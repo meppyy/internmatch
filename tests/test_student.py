@@ -417,3 +417,131 @@ def test_student_sees_empty_state_when_no_active_internships(
 
     assert response.status_code == 200
     assert b"No active internships are available right now." in response.data
+
+def create_test_internships(app, email, records):
+    with app.app_context():
+        recruiter_user = User(
+            name="Test Recruiter",
+            email=email,
+            password_hash="test-password",
+            role="recruiter"
+        )
+
+        db.session.add(recruiter_user)
+        db.session.flush()
+
+        recruiter = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="Test Company"
+        )
+
+        db.session.add(recruiter)
+        db.session.flush()
+
+        internship_ids = []
+
+        for record in records:
+            internship = Internship(
+                recruiter_id=recruiter.recruiter_id,
+                company_name="Test Company",
+                **record
+            )
+
+            db.session.add(internship)
+            db.session.flush()
+            internship_ids.append(internship.internship_id)
+
+        db.session.commit()
+
+        return internship_ids
+
+def test_student_can_search_and_filter_internships(
+    client, student_user, app
+):
+    create_test_internships(
+        app,
+        "search-recruiter@test.com",
+        [
+            {
+                "title": "Remote Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Hybrid Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Hybrid",
+                "status": "Active"
+            },
+            {
+                "title": "Remote Data Analyst",
+                "description": "SQL analysis",
+                "location": "Mumbai",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Closed Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Closed"
+            }
+        ]
+    )
+
+    login_student(client, student_user)
+
+    response = client.get(
+        "/student/internships?q=Python&work_mode=Remote"
+    )
+
+    assert response.status_code == 200
+    assert b"Remote Python Internship" in response.data
+    assert b"Hybrid Python Internship" not in response.data
+    assert b"Remote Data Analyst" not in response.data
+    assert b"Closed Python Internship" not in response.data
+
+
+def test_student_can_view_active_internship_details(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "details-recruiter@test.com",
+        [
+            {
+                "title": "Active Detail Internship",
+                "description": "Build Flask applications.",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Closed Detail Internship",
+                "description": "Closed listing",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Closed"
+            }
+        ]
+    )
+
+    login_student(client, student_user)
+
+    response = client.get(
+        f"/student/internships/{internship_ids[0]}"
+    )
+
+    assert response.status_code == 200
+    assert b"Active Detail Internship" in response.data
+    assert b"Build Flask applications." in response.data
+
+    closed_response = client.get(
+        f"/student/internships/{internship_ids[1]}"
+    )
+
+    assert closed_response.status_code == 404

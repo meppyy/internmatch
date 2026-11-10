@@ -18,6 +18,7 @@ from ..models.student import StudentProfile
 from ..extensions import db
 from ..models.skill import Skill
 from ..models.internship import Internship
+from sqlalchemy import or_
 
 @student.route("/dashboard")
 @role_required("student")
@@ -299,13 +300,51 @@ def profile_completion():
 @student.route("/internships")
 @role_required("student")
 def browse_internships():
-    internships = Internship.query.filter_by(
+    search_query = request.args.get("q", "").strip()
+    work_mode = request.args.get("work_mode", "").strip()
+
+    internship_query = Internship.query.filter_by(
         status="Active"
-    ).order_by(
+    )
+
+    if search_query:
+        search_pattern = f"%{search_query}%"
+
+        internship_query = internship_query.filter(
+            or_(
+                Internship.title.ilike(search_pattern),
+                Internship.company_name.ilike(search_pattern),
+                Internship.location.ilike(search_pattern),
+                Internship.description.ilike(search_pattern)
+            )
+        )
+
+    if work_mode:
+        internship_query = internship_query.filter(
+            Internship.work_mode == work_mode
+        )
+
+    internships = internship_query.order_by(
         Internship.created_at.desc()
     ).all()
 
     return render_template(
         "student/internships.html",
-        internships=internships
+        internships=internships,
+        query=search_query,
+        work_mode=work_mode
+    )
+
+
+@student.route("/internships/<int:internship_id>")
+@role_required("student")
+def internship_details(internship_id):
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        status="Active"
+    ).first_or_404()
+
+    return render_template(
+        "student/internship_details.html",
+        internship=internship
     )

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ internship.title }} - InternMatch</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>{{ internship.title }}</h1>
+
+        <p><strong>Company:</strong> {{ internship.company_name }}</p>
+        <p><strong>Location:</strong> {{ internship.location or "Not specified" }}</p>
+        <p><strong>Work Mode:</strong> {{ internship.work_mode or "Not specified" }}</p>
+        <p><strong>Duration:</strong> {{ internship.duration or "Not specified" }}</p>
+        <p><strong>Stipend:</strong> {{ internship.stipend or "Not specified" }}</p>
+        <p><strong>Deadline:</strong> {{ internship.deadline or "Not specified" }}</p>
+
+        <h2>Description</h2>
+        <p>{{ internship.description or "No description provided." }}</p>
+
+        <h2>Eligibility</h2>
+        <p>{{ internship.eligibility or "Not specified" }}</p>
+
+        <h2>Required Skills</h2>
+
+        {% if internship.skills %}
+            <ul>
+                {% for skill in internship.skills %}
+                    <li>{{ skill.skill_name }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No skills specified.</p>
+        {% endif %}
+
+        <a href="{{ url_for('student.browse_internships') }}">
+            Back to Internships
+        </a>
+    </main>
+
+</body>
+</html>

@@ -15,6 +15,47 @@
     <main>
         <h1>Available Internships</h1>
 
+        <form method="GET"
+      action="{{ url_for('student.browse_internships') }}">
+
+    <label for="q">Search internships:</label>
+    <input
+        type="search"
+        id="q"
+        name="q"
+        value="{{ query }}"
+        placeholder="Title, company, location or description"
+    >
+
+    <label for="work_mode">Work Mode:</label>
+
+    <select id="work_mode" name="work_mode">
+        <option value="">All Work Modes</option>
+
+        <option value="Remote"
+            {% if work_mode == "Remote" %}selected{% endif %}>
+            Remote
+        </option>
+
+        <option value="Hybrid"
+            {% if work_mode == "Hybrid" %}selected{% endif %}>
+            Hybrid
+        </option>
+
+        <option value="On-site"
+            {% if work_mode == "On-site" %}selected{% endif %}>
+            On-site
+        </option>
+    </select>
+
+    <button type="submit">Search</button>
+
+    <a href="{{ url_for('student.browse_internships') }}">
+        Clear Filters
+    </a>
+
+</form>
+
         {% if internships %}
 
             {% for internship in internships %}
@@ -64,6 +105,13 @@
                     {% else %}
                         <p>No skills specified.</p>
                     {% endif %}
+                    
+                    <a href="{{ url_for(
+                        'student.internship_details',
+                        internship_id=internship.internship_id
+                    ) }}">
+                        View Details
+                    </a>
                 </article>
 
                 <hr>

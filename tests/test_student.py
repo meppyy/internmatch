@@ -742,3 +742,136 @@ def test_student_sees_empty_application_history(
 
     assert response.status_code == 200
     assert b"You haven't applied to any internships yet." in response.data
+
+def test_student_upload_saves_extracted_resume_text(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    extracted_content = (
+        "Python, Flask, SQL and Machine Learning experience"
+    )
+
+    def fake_extract(file_content, filename):
+        assert file_content == b"resume bytes"
+        assert filename == "parsed_resume.pdf"
+        return extracted_content
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        fake_extract
+    )
+
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"resume bytes"),
+                "parsed_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume.extracted_text == extracted_content
+
+
+def test_replacing_resume_updates_extracted_text(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    extracted_versions = iter([
+        "First resume: Python and Java",
+        "Second resume: Python, Flask and SQL"
+    ])
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        lambda content, filename: next(extracted_versions)
+    )
+
+    login_student(client, student_user)
+
+    for filename, content in [
+        ("first_resume.pdf", b"first resume"),
+        ("second_resume.pdf", b"second resume")
+    ]:
+        response = client.post(
+            "/student/resume/upload",
+            data={
+                "resume": (BytesIO(content), filename)
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True
+        )
+
+        assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume.file_name == "second_resume.pdf"
+        assert profile.resume.extracted_text == (
+            "Second resume: Python, Flask and SQL"
+        )
+
+
+def test_resume_upload_succeeds_when_text_extraction_fails(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    extraction_attempts = []
+
+    def failed_extraction(file_content, filename):
+        extraction_attempts.append((file_content, filename))
+        raise ValueError("Could not extract text from the resume.")
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        failed_extraction
+    )
+
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"unreadable pdf"),
+                "unreadable.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert extraction_attempts == [
+        (b"unreadable pdf", "unreadable.pdf")
+    ]
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is not None
+        assert profile.resume.file_name == "unreadable.pdf"
+        assert profile.resume.extracted_text is None

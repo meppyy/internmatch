@@ -23,6 +23,7 @@ from ..extensions import db
 from ..models.skill import Skill
 from ..models.internship import Internship
 from sqlalchemy import or_
+from ..services import resume_parser
 
 @student.route("/dashboard")
 @role_required("student")
@@ -183,6 +184,24 @@ def upload_resume():
 
             old_file_path = resume.file_path if resume else None
 
+            # Extract searchable text before saving the uploaded file.
+            try:
+                file_content = file.read()
+                extracted_text = resume_parser.extract_resume_text(
+                    file_content,
+                    filename
+                )
+            except ValueError as error:
+                current_app.logger.warning(
+                    "Resume text extraction skipped for %s: %s",
+                    filename,
+                    error
+                )
+                extracted_text = None
+            finally:
+                # Storage must receive the complete original file.
+                file.seek(0)
+
             # Save the new resume through the configured storage service.
             try:
                 new_file_path = save_resume_file(
@@ -202,11 +221,13 @@ def upload_resume():
                 if resume:
                     resume.file_name = filename
                     resume.file_path = new_file_path
+                    resume.extracted_text = extracted_text
                 else:
                     resume = Resume(
                         student_id=student_profile.student_id,
                         file_name=filename,
-                        file_path=new_file_path
+                        file_path=new_file_path,
+                        extracted_text=extracted_text
                     )
                     db.session.add(resume)
 

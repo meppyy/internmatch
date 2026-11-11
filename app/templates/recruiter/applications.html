@@ -101,6 +101,48 @@
                         <p>No skills added by this student.</p>
                     {% endif %}
 
+
+                    {% set skill_match = skill_matches[application.application_id] %}
+
+                    <h4>Skill Match</h4>
+
+                    {% if skill_match.score is not none %}
+
+                        <p>
+                            <strong>Match:</strong>
+                            {{ skill_match.score }}%
+                        </p>
+
+                        <p>{{ skill_match.explanation }}</p>
+
+                        <h5>Matched Skills</h5>
+
+                        {% if skill_match.matched_skills %}
+                            <ul>
+                                {% for skill in skill_match.matched_skills %}
+                                    <li>{{ skill }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>No matching skills yet.</p>
+                        {% endif %}
+
+                        <h5>Missing Skills</h5>
+
+                        {% if skill_match.missing_skills %}
+                            <ul>
+                                {% for skill in skill_match.missing_skills %}
+                                    <li>{{ skill }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>Applicant has all the required skills!</p>
+                        {% endif %}
+
+                    {% else %}
+                        <p>No skill requirements specified</p>
+                    {% endif %}
+
                     <h4>Resume</h4>
 
                     {% if application.resume %}

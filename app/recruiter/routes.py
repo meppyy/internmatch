@@ -14,6 +14,7 @@ from ..models.internship import Internship
 from ..models.skill import Skill
 from app.models import internship
 from ..services.storage import read_resume_file
+from ..services.skill_matching import calculate_skill_match
 
 
 @recruiter.route("/dashboard")
@@ -250,6 +251,7 @@ def internship_details(internship_id):
         internship=internship
     )
 
+
 @recruiter.route(
     "/internships/<int:internship_id>/applications"
 )
@@ -259,7 +261,7 @@ def internship_applications(internship_id):
         user_id=current_user.user_id
     ).first_or_404()
 
-    # Confirm that this internship belongs to the logged-in recruiter.
+    # Verify that this internship belongs to the logged-in recruiter.
     internship = Internship.query.filter_by(
         internship_id=internship_id,
         recruiter_id=recruiter_profile.recruiter_id
@@ -271,10 +273,20 @@ def internship_applications(internship_id):
         Application.application_date.desc()
     ).all()
 
+    # Calculate the skill match separately for every applicant.
+    skill_matches = {
+        application.application_id: calculate_skill_match(
+            application.student,
+            internship
+        )
+        for application in applications
+    }
+
     return render_template(
         "recruiter/applications.html",
         internship=internship,
-        applications=applications
+        applications=applications,
+        skill_matches=skill_matches
     )
 
 @recruiter.route(

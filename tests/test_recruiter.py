@@ -7,7 +7,7 @@ from app.extensions import db
 
 from app.models import (
     User, RecruiterProfile, StudentProfile,
-    Internship, Application, Resume
+    Internship, Application, Resume, Skill
 )
 
 
@@ -215,6 +215,65 @@ def test_recruiter_can_view_applicants_for_own_internship(
     internships_response = client.get("/recruiter/internships")
     assert b"View Applicants" in internships_response.data
 
+def test_recruiter_can_view_applicant_skill_match(client, app):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "applicant-match@test.com",
+        "Python Developer Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+        application = db.session.get(
+            Application, application_id
+        )
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # Internship requirements.
+        for skill_name in ["Python", "SQL", "Flask"]:
+            internship.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        # Applicant's existing skills.
+        for skill_name in ["Python", "SQL", "Git"]:
+            application.student.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        db.session.commit()
+
+    login(client, email, "TestPassword123")
+
+    response = client.get(
+        f"/recruiter/internships/{internship_id}/applications"
+    )
+
+    assert response.status_code == 200
+    assert b"Skill Match" in response.data
+    assert b"67%" in response.data
+    assert b"Matched Skills" in response.data
+    assert b"Python" in response.data
+    assert b"SQL" in response.data
+    assert b"Missing Skills" in response.data
+    assert b"Flask" in response.data
 
 def test_recruiter_cannot_view_another_recruiters_applicants(
     client, app

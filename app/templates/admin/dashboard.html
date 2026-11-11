@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>Admin Dashboard</h1>
+
+        <p>Platform overview and statistics.</p>
+
+        <section>
+            <h2>User Statistics</h2>
+
+            <p>
+                <strong>Total Users:</strong>
+                {{ total_users }}
+            </p>
+
+            <p>
+                <strong>Total Students:</strong>
+                {{ total_students }}
+            </p>
+
+            <p>
+                <strong>Total Recruiters:</strong>
+                {{ total_recruiters }}
+            </p>
+        </section>
+
+        <hr>
+
+        <section>
+            <h2>Internship Statistics</h2>
+
+            <p>
+                <strong>Total Internships:</strong>
+                {{ total_internships }}
+            </p>
+
+            <p>
+                <strong>Active Internships:</strong>
+                {{ active_internships }}
+            </p>
+        </section>
+
+        <hr>
+
+        <section>
+            <h2>Application Statistics</h2>
+
+            <p>
+                <strong>Total Applications:</strong>
+                {{ total_applications }}
+            </p>
+        </section>
+
+    </main>
+
+</body>
+</html>

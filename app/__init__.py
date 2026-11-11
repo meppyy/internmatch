@@ -3,6 +3,8 @@ import os
 from flask import Flask, render_template
 from datetime import datetime
 
+from app import admin
+
 from .config import Config
 from .extensions import db, login_manager, migrate, csrf
 
@@ -65,6 +67,9 @@ def create_app(test_config=None):
 
     from .recruiter import recruiter
     app.register_blueprint(recruiter)
+
+    from .admin import admin
+    app.register_blueprint(admin)
 
     from .pwa import pwa
     app.register_blueprint(pwa)

@@ -111,6 +111,9 @@ def login():
         elif user.role == "recruiter":
             return redirect(url_for("recruiter.dashboard"))
 
+        elif user.role == "admin":
+            return redirect(url_for("admin.dashboard"))
+
         return redirect(url_for("home"))
 
     return render_template("auth/login.html")

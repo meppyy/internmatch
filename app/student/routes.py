@@ -399,7 +399,6 @@ def browse_internships():
     )
 
 
-
 @student.route("/internships/<int:internship_id>")
 @role_required("student")
 def internship_details(internship_id):
@@ -417,10 +416,16 @@ def internship_details(internship_id):
         internship_id=internship_id
     ).first()
 
+    skill_match = calculate_skill_match(
+        student_profile,
+        internship
+    )
+
     return render_template(
         "student/internship_details.html",
         internship=internship,
-        has_applied=existing_application is not None
+        has_applied=existing_application is not None,
+        skill_match=skill_match
     )
 
 

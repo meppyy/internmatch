@@ -41,6 +41,45 @@
         {% endif %}
 
 
+        <h2>Skill Match</h2>
+
+        {% if skill_match.score is not none %}
+
+            <p>
+                <strong>Match:</strong>
+                {{ skill_match.score }}%
+            </p>
+
+            <p>{{ skill_match.explanation }}</p>
+
+            <h3>Matched Skills</h3>
+
+            {% if skill_match.matched_skills %}
+                <ul>
+                    {% for skill in skill_match.matched_skills %}
+                        <li>{{ skill }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No matching skills yet.</p>
+            {% endif %}
+
+            <h3>Missing Skills</h3>
+
+            {% if skill_match.missing_skills %}
+                <ul>
+                    {% for skill in skill_match.missing_skills %}
+                        <li>{{ skill }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>You have all the required skills!</p>
+            {% endif %}
+
+        {% else %}
+            <p>No skill requirements specified</p>
+        {% endif %}
+
         <hr>
 
 <h2>Apply for this Internship</h2>

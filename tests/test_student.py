@@ -616,6 +616,82 @@ def test_student_can_view_active_internship_details(
 
     assert closed_response.status_code == 404
 
+
+def test_student_internship_details_shows_explainable_skill_match(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "detail-match-recruiter@test.com",
+        [
+            {
+                "title": "Backend Developer Internship",
+                "status": "Active"
+            },
+            {
+                "title": "Internship Without Skill Requirements",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        internship = Internship.query.get(internship_ids[0])
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        for skill_name in ["Python", "SQL", "Git"]:
+            profile.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        for skill_name in ["Python", "SQL", "Flask"]:
+            internship.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get(
+        f"/student/internships/{internship_ids[0]}"
+    )
+
+    assert response.status_code == 200
+    assert b"Skill Match" in response.data
+    assert b"67%" in response.data
+    assert b"Matched Skills" in response.data
+    assert b"Python" in response.data
+    assert b"SQL" in response.data
+    assert b"Missing Skills" in response.data
+    assert b"Flask" in response.data
+
+    no_requirements_response = client.get(
+        f"/student/internships/{internship_ids[1]}"
+    )
+
+    assert no_requirements_response.status_code == 200
+    assert (
+        b"No skill requirements specified"
+        in no_requirements_response.data
+    )
+
+
 def test_student_can_apply_without_resume(client, student_user, app):
     internship_ids = create_test_internships(
         app,

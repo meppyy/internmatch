@@ -24,6 +24,7 @@ from ..models.skill import Skill
 from ..models.internship import Internship
 from sqlalchemy import or_
 from ..services import resume_parser, skill_extractor
+from ..services.skill_matching import calculate_skill_match
 
 @student.route("/dashboard")
 @role_required("student")
@@ -342,6 +343,7 @@ def profile_completion():
         percentage=percentage
     )
 
+
 @student.route("/internships")
 @role_required("student")
 def browse_internships():
@@ -369,16 +371,33 @@ def browse_internships():
             Internship.work_mode == work_mode
         )
 
+    # First retrieve the internships.
     internships = internship_query.order_by(
         Internship.created_at.desc()
     ).all()
+
+    # Then retrieve the logged-in student's profile.
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    # Finally calculate a match for each internship.
+    skill_matches = {
+        internship.internship_id: calculate_skill_match(
+            student_profile,
+            internship
+        )
+        for internship in internships
+    }
 
     return render_template(
         "student/internships.html",
         internships=internships,
         query=search_query,
-        work_mode=work_mode
+        work_mode=work_mode,
+        skill_matches=skill_matches
     )
+
 
 
 @student.route("/internships/<int:internship_id>")

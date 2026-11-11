@@ -408,6 +408,76 @@ def test_student_can_browse_active_internships(
     assert b"Draft Python Internship" not in response.data
     assert b"Closed Python Internship" not in response.data
 
+
+def test_student_browse_shows_explainable_skill_match(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "skill-match-recruiter@test.com",
+        [
+            {
+                "title": "Python Developer Internship",
+                "status": "Active"
+            },
+            {
+                "title": "Internship Without Skill Requirements",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        internship = Internship.query.get(internship_ids[0])
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # Assign existing skills to the student.
+        for skill_name in ["Python", "SQL", "Git"]:
+            skill = get_or_create_skill(skill_name)
+            profile.skills.append(skill)
+
+        # Assign required skills to the internship.
+        for skill_name in ["Python", "SQL", "Flask"]:
+            skill = get_or_create_skill(skill_name)
+            internship.skills.append(skill)
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+
+    # Two of three required skills match: 67%.
+    assert b"67%" in response.data
+
+    assert b"Matched Skills" in response.data
+    assert b"Python" in response.data
+    assert b"SQL" in response.data
+
+    assert b"Missing Skills" in response.data
+    assert b"Flask" in response.data
+
+    # No requirements should not be presented as a 0% match.
+    assert b"No skill requirements specified" in response.data
+
+
 def test_student_sees_empty_state_when_no_active_internships(
     client, student_user
 ):

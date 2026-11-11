@@ -23,7 +23,7 @@ from ..extensions import db
 from ..models.skill import Skill
 from ..models.internship import Internship
 from sqlalchemy import or_
-from ..services import resume_parser
+from ..services import resume_parser, skill_extractor
 
 @student.route("/dashboard")
 @role_required("student")
@@ -230,6 +230,26 @@ def upload_resume():
                         extracted_text=extracted_text
                     )
                     db.session.add(resume)
+
+                # Add automatically detected skills without removing
+                # skills the student has already entered manually.
+                if extracted_text:
+                    detected_skills = skill_extractor.extract_skills(
+                        extracted_text
+                    )
+
+                    for skill_name in detected_skills:
+                        skill = Skill.query.filter_by(
+                            skill_name=skill_name
+                        ).first()
+
+                        if not skill:
+                            skill = Skill(skill_name=skill_name)
+                            db.session.add(skill)
+                            db.session.flush()
+
+                        if skill not in student_profile.skills:
+                            student_profile.skills.append(skill)
 
                 db.session.commit()
 

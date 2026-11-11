@@ -4,7 +4,7 @@ from io import BytesIO
 from app import create_app
 from app.extensions import db
 from app.models import User, StudentProfile
-from app.models import Internship, RecruiterProfile, Application, Resume
+from app.models import Internship, RecruiterProfile, Application, Resume, Skill
 
 
 @pytest.fixture
@@ -875,3 +875,71 @@ def test_resume_upload_succeeds_when_text_extraction_fails(
         assert profile.resume is not None
         assert profile.resume.file_name == "unreadable.pdf"
         assert profile.resume.extracted_text is None
+
+def test_resume_upload_adds_extracted_skills_and_preserves_manual_skills(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        lambda content, filename: (
+            "Python, Flask, SQL and JavaScript development"
+        )
+    )
+
+    # Add skills manually before uploading the resume.
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        for skill_name in ["Git", "Python"]:
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            profile.skills.append(skill)
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"resume bytes"),
+                "skills_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        skill_names = [
+            skill.skill_name for skill in profile.skills
+        ]
+
+        assert set(skill_names) == {
+            "Git",
+            "Python",
+            "Flask",
+            "SQL",
+            "JavaScript"
+        }
+
+        assert len(skill_names) == len(set(skill_names))

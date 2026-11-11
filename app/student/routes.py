@@ -25,6 +25,7 @@ from ..models.internship import Internship
 from sqlalchemy import or_
 from ..services import resume_parser, skill_extractor
 from ..services.skill_matching import calculate_skill_match
+from ..services.skill_gap import analyze_skill_gaps
 
 @student.route("/dashboard")
 @role_required("student")
@@ -140,6 +141,30 @@ def remove_skill(skill_id):
         db.session.commit()
 
     return redirect(url_for("student.skills"))
+
+
+@student.route("/skill-gaps")
+@role_required("student")
+def skill_gap_analysis():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only active internships should influence skill priorities.
+    active_internships = Internship.query.filter_by(
+        status="Active"
+    ).all()
+
+    skill_gaps = analyze_skill_gaps(
+        student_profile,
+        active_internships
+    )
+
+    return render_template(
+        "student/skill_gaps.html",
+        student=student_profile,
+        skill_gaps=skill_gaps
+    )
 
 @student.route("/experience")
 @role_required("student")

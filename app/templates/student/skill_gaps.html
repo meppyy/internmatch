@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Gap Analysis - InternMatch</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="app-page">
+
+    {% include "_navigation.html" %}
+
+    <main>
+        <h1>Skill Gap Analysis</h1>
+
+        <p>
+            Discover which skills you could prioritize
+            to improve your internship opportunities.
+        </p>
+
+        <h2>Your Current Skills</h2>
+
+        {% if student.skills %}
+            <ul>
+                {% for skill in student.skills %}
+                    <li>{{ skill.skill_name }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>
+                No skills added yet. Add skills to your profile
+                or upload a resume to get started.
+            </p>
+        {% endif %}
+
+        <h2>Skills to Prioritize</h2>
+
+        <p>
+            These skills are ranked by how frequently they appear
+            in active internship listings on InternMatch.
+        </p>
+
+        {% if skill_gaps %}
+
+            <ol>
+                {% for gap in skill_gaps %}
+                    <li>
+                        <strong>{{ gap.skill_name }}</strong>
+
+                        <p>Requested by {{ gap.internship_count }} active internship{% if gap.internship_count != 1 %}s{% endif %}.</p>
+                    </li>
+                {% endfor %}
+            </ol>
+
+        {% else %}
+
+            <p>
+                No missing skills were identified in the available
+                active internship listings. Some listings may not
+                specify required skills.
+            </p>
+
+        {% endif %}
+
+        <p>
+            <a href="{{ url_for('student.skills') }}">
+                Manage My Skills
+            </a>
+        </p>
+
+        <p>
+            <a href="{{ url_for('student.browse_internships') }}">
+                Browse Internships
+            </a>
+        </p>
+
+    </main>
+
+</body>
+</html>

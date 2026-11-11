@@ -1,3 +1,5 @@
+from urllib import response
+
 import pytest
 from io import BytesIO
 
@@ -1089,3 +1091,85 @@ def test_resume_upload_adds_extracted_skills_and_preserves_manual_skills(
         }
 
         assert len(skill_names) == len(set(skill_names))
+
+def test_student_can_view_prioritized_skill_gaps(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "skill-gap-page@test.com",
+        [
+            {"title": "Backend Internship One", "status": "Active"},
+            {"title": "Backend Internship Two", "status": "Active"},
+            {"title": "Data Internship", "status": "Active"},
+            {"title": "Draft Internship", "status": "Draft"},
+            {"title": "Closed Internship", "status": "Closed"}
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # The student already knows Python.
+        profile.skills.append(
+            get_or_create_skill("Python")
+        )
+
+        internship_requirements = {
+            internship_ids[0]: ["Python", "SQL", "Flask"],
+            internship_ids[1]: ["SQL", "Flask", "JavaScript"],
+            internship_ids[2]: ["SQL", "Git"],
+            internship_ids[3]: ["Docker", "SQL"],
+            internship_ids[4]: ["Docker", "Java"]
+        }
+
+        for internship_id, skill_names in internship_requirements.items():
+            internship = db.session.get(
+                Internship, internship_id
+            )
+
+            for skill_name in skill_names:
+                internship.skills.append(
+                    get_or_create_skill(skill_name)
+                )
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/skill-gaps")
+
+    assert response.status_code == 200
+    assert b"Skill Gap Analysis" in response.data
+
+    assert b"Your Current Skills" in response.data
+    assert b"Python" in response.data
+
+    assert b"Skills to Prioritize" in response.data
+    assert b"SQL" in response.data
+    assert b"3 active internships" in response.data
+    assert b"Flask" in response.data
+    assert b"2 active internships" in response.data
+    assert b"Git" in response.data
+    assert b"JavaScript" in response.data
+
+    # Skills from closed and draft internships must be excluded.
+    assert b"<strong>Docker</strong>" not in response.data
+    assert b"<strong>Java</strong>" not in response.data
+
+    # JavaScript is required by an active internship.
+    assert b"<strong>JavaScript</strong>" in response.data

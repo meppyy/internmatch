@@ -141,6 +141,46 @@ def test_admin_can_view_platform_overview(client, app):
     assert b"Total Applications" in response.data
 
 
+def test_admin_can_view_user_directory(client, app):
+    with app.app_context():
+        admin = create_user(
+            "Platform Admin",
+            "directory-admin@test.com",
+            "admin"
+        )
+
+        create_user(
+            "Alice Student",
+            "alice@test.com",
+            "student"
+        )
+
+        create_user(
+            "Bob Recruiter",
+            "bob@test.com",
+            "recruiter"
+        )
+
+        db.session.commit()
+
+    login_as(client, "directory-admin@test.com")
+
+    response = client.get("/admin/users")
+
+    assert response.status_code == 200
+    assert b"User Management" in response.data
+    assert b"Alice Student" in response.data
+    assert b"alice@test.com" in response.data
+    assert b"Student" in response.data
+    assert b"Bob Recruiter" in response.data
+    assert b"bob@test.com" in response.data
+    assert b"Recruiter" in response.data
+    assert b"Platform Admin" in response.data
+
+    # Password hashes must never appear in the user directory.
+    assert b"password_hash" not in response.data
+
+
 @pytest.mark.parametrize("role", ["student", "recruiter"])
 def test_non_admin_cannot_access_admin_dashboard(
     client, app, role

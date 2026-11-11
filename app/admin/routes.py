@@ -36,3 +36,16 @@ def dashboard():
         active_internships=active_internships,
         total_applications=total_applications
     )
+
+
+@admin.route("/users")
+@role_required("admin")
+def user_management():
+    users = User.query.order_by(
+        User.created_at.desc()
+    ).all()
+
+    return render_template(
+        "admin/users.html",
+        users=users
+    )

@@ -251,6 +251,155 @@ def internship_details(internship_id):
         internship=internship
     )
 
+@recruiter.route(
+    "/internships/<int:internship_id>/edit",
+    methods=["GET", "POST"]
+)
+@role_required("recruiter")
+def edit_internship(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only the recruiter who owns this listing can edit it.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    def render_edit_form():
+        return render_template(
+            "recruiter/create_internship.html",
+            internship=internship
+        )
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+
+        if not title:
+            flash("Internship title is required.", "error")
+            return render_edit_form()
+
+        description = request.form.get("description", "").strip()
+
+        if not description:
+            flash("Internship description is required.", "error")
+            return render_edit_form()
+
+        location = request.form.get("location", "").strip()
+
+        if not location:
+            flash("Location is required.", "error")
+            return render_edit_form()
+
+        work_mode = request.form.get("work_mode", "")
+
+        if work_mode not in ["Remote", "Hybrid", "On-site"]:
+            flash("Invalid work mode.", "error")
+            return render_edit_form()
+
+        duration = request.form.get("duration", "").strip()
+
+        if not duration:
+            flash("Duration is required.", "error")
+            return render_edit_form()
+
+        stipend = request.form.get("stipend", "").strip()
+
+        try:
+            stipend_value = float(stipend)
+        except ValueError:
+            flash("Stipend must be a number.", "error")
+            return render_edit_form()
+
+        if stipend_value < 0:
+            flash("Stipend cannot be negative.", "error")
+            return render_edit_form()
+
+        eligibility = request.form.get("eligibility", "").strip()
+
+        if not eligibility:
+            flash("Eligibility requirements are required.", "error")
+            return render_edit_form()
+
+        deadline_input = request.form.get("deadline", "").strip()
+
+        if not deadline_input:
+            flash("Application deadline is required.", "error")
+            return render_edit_form()
+
+        try:
+            deadline = datetime.strptime(
+                deadline_input,
+                "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            flash("Invalid application deadline.", "error")
+            return render_edit_form()
+
+        if deadline < datetime.now().date():
+            flash("Application deadline cannot be in the past.", "error")
+            return render_edit_form()
+
+        status = request.form.get("status", "").strip()
+
+        if status not in ["Draft", "Active", "Closed"]:
+            flash("Invalid internship status.", "error")
+            return render_edit_form()
+
+        required_skills = request.form.get(
+            "required_skills", ""
+        ).strip()
+
+        skill_names = list(dict.fromkeys(
+            skill.strip()
+            for skill in required_skills.split(",")
+            if skill.strip()
+        ))
+
+        if not skill_names:
+            flash("At least one required skill is needed.", "error")
+            return render_edit_form()
+
+        # Retrieve existing skills or create new ones.
+        updated_skills = []
+
+        for skill_name in skill_names:
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+
+            updated_skills.append(skill)
+
+        # Update the existing internship without creating
+        # a new listing or changing its ownership.
+        internship.title = title
+        internship.description = description
+        internship.location = location
+        internship.work_mode = work_mode
+        internship.duration = duration
+        internship.stipend = stipend
+        internship.eligibility = eligibility
+        internship.deadline = deadline
+        internship.status = status
+
+        internship.required_skills = ", ".join(skill_names)
+        internship.skills = updated_skills
+
+        db.session.commit()
+
+        flash("Internship updated successfully.", "success")
+
+        return redirect(url_for(
+            "recruiter.internship_details",
+            internship_id=internship.internship_id
+        ))
+
+    return render_edit_form()
 
 @recruiter.route(
     "/internships/<int:internship_id>/applications"

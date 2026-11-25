@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Internship - InternMatch</title>
+    <title>
+        {% if internship %}Edit Internship{% else %}Create Internship{% endif %}
+        - InternMatch
+    </title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='css/style.css') }}">
@@ -15,17 +18,27 @@
     <main class="page-container">
 
         <a class="back-link"
-           href="{{ url_for('recruiter.dashboard') }}">
-            ← Back to Dashboard
-        </a>
+   href="{{ url_for('recruiter.internships') if internship else url_for('recruiter.dashboard') }}">
+    {% if internship %}
+        ← Back to My Internships
+    {% else %}
+        ← Back to Dashboard
+    {% endif %}
+</a>
 
         <div class="page-heading">
             <span class="eyebrow">RECRUITER WORKSPACE</span>
-            <h1>Create an Internship</h1>
+            <h1>
+                {% if internship %}Edit Internship{% else %}Create an Internship{% endif %}
+            </h1>
             <p>
-                Provide the details students need to understand
-                your opportunity.
-            </p>
+    {% if internship %}
+        Update the details of your internship opportunity.
+    {% else %}
+        Provide the details students need to understand
+        your opportunity.
+    {% endif %}
+</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -36,7 +49,44 @@
             {% endfor %}
         {% endwith %}
 
-        <form method="POST" class="form-card recruiter-form">
+                {% set initial_work_mode = request.form.get(
+    'work_mode',
+    internship.work_mode if internship else ''
+) %}
+
+{% set initial_status = request.form.get(
+    'status',
+    internship.status if internship else 'Active'
+) %}
+
+{% set initial_deadline = (
+    internship.deadline.isoformat()
+    if internship and internship.deadline else ''
+) %}
+
+{% set initial_required_skills = '' %}
+
+{% if internship %}
+    {% if internship.required_skills %}
+        {% set initial_required_skills = internship.required_skills %}
+    {% else %}
+        {% set initial_required_skills = (
+            internship.skills
+            | map(attribute='skill_name')
+            | join(', ')
+        ) %}
+    {% endif %}
+{% endif %}
+
+
+        <form
+    method="POST"
+    action="{{ url_for(
+        'recruiter.edit_internship',
+        internship_id=internship.internship_id
+    ) if internship else url_for('recruiter.create_internship') }}"
+    class="form-card recruiter-form"
+>
 
             <input type="hidden"
                    name="csrf_token"
@@ -54,7 +104,10 @@
                     type="text"
                     id="title"
                     name="title"
-                    value="{{ request.form.get('title', '') }}"
+                    value="{{ request.form.get(
+                        'title',
+                        internship.title if internship else ''
+                        ) }}"
                     placeholder="e.g. Python Developer Intern"
                     required
                 >
@@ -69,7 +122,10 @@
                     rows="5"
                     placeholder="Describe the role, responsibilities and learning opportunities..."
                     required
-                >{{ request.form.get('description', '') }}</textarea>
+                >{{ request.form.get(
+                    'description',
+                    internship.description if internship else ''
+                ) }}</textarea>
             </div>
 
             <div class="form-section-heading">
@@ -86,7 +142,10 @@
                         type="text"
                         id="location"
                         name="location"
-                        value="{{ request.form.get('location', '') }}"
+                        value="{{ request.form.get(
+                            'location',
+                            internship.location if internship else ''
+                        ) }}"
                         placeholder="e.g. New Delhi"
                         required
                     >
@@ -100,17 +159,17 @@
                         <option value="">Select Work Mode</option>
 
                         <option value="Remote"
-                            {% if request.form.get('work_mode') == 'Remote' %}selected{% endif %}>
+                            {% if initial_work_mode == 'Remote' %}selected{% endif %}>
                             Remote
                         </option>
 
                         <option value="Hybrid"
-                            {% if request.form.get('work_mode') == 'Hybrid' %}selected{% endif %}>
+                            {% if initial_work_mode == 'Hybrid' %}selected{% endif %}>
                             Hybrid
                         </option>
 
                         <option value="On-site"
-                            {% if request.form.get('work_mode') == 'On-site' %}selected{% endif %}>
+                            {% if initial_work_mode == 'On-site' %}selected{% endif %}>
                             On-site
                         </option>
 
@@ -124,7 +183,10 @@
                         type="text"
                         id="duration"
                         name="duration"
-                        value="{{ request.form.get('duration', '') }}"
+                        value="{{ request.form.get(
+                            'duration',
+                            internship.duration if internship else ''
+                        ) }}"
                         placeholder="e.g. 3 Months"
                         required
                     >
@@ -139,7 +201,10 @@
                         name="stipend"
                         min="0"
                         step="0.01"
-                        value="{{ request.form.get('stipend', '') }}"
+                        value="{{ request.form.get(
+                            'stipend',
+                            internship.stipend if internship else ''
+                        ) }}"
                         placeholder="e.g. 10000"
                         required
                     >
@@ -152,7 +217,7 @@
                         type="date"
                         id="deadline"
                         name="deadline"
-                        value="{{ request.form.get('deadline', '') }}"
+                        value="{{ request.form.get('deadline', initial_deadline) }}"
                         required
                     >
                 </div>
@@ -163,17 +228,17 @@
                     <select id="status" name="status" required>
 
                         <option value="Draft"
-                            {% if request.form.get('status') == 'Draft' %}selected{% endif %}>
+                            {% if initial_status == 'Draft' %}selected{% endif %}>
                             Draft
                         </option>
 
                         <option value="Active"
-                            {% if request.form.get('status', 'Active') == 'Active' %}selected{% endif %}>
+                            {% if initial_status == 'Active' %}selected{% endif %}>
                             Active
                         </option>
 
                         <option value="Closed"
-                            {% if request.form.get('status') == 'Closed' %}selected{% endif %}>
+                            {% if initial_status == 'Closed' %}selected{% endif %}>
                             Closed
                         </option>
 
@@ -201,7 +266,10 @@
                     rows="4"
                     placeholder="Mention degree, academic requirements or other criteria..."
                     required
-                >{{ request.form.get('eligibility', '') }}</textarea>
+                >{{ request.form.get(
+                    'eligibility',
+                    internship.eligibility if internship else ''
+                ) }}</textarea>
             </div>
 
             <div class="form-group">
@@ -211,7 +279,10 @@
                     type="text"
                     id="required_skills"
                     name="required_skills"
-                    value="{{ request.form.get('required_skills', '') }}"
+                    value="{{ request.form.get(
+                        'required_skills',
+                        initial_required_skills
+                    ) }}"
                     placeholder="Python, SQL, Flask, Git"
                     required
                 >
@@ -227,7 +298,11 @@
                 </a>
 
                 <button type="submit" class="primary-button">
-                    Create Internship
+                     {% if internship %}
+                        Save Changes
+                    {% else %}
+                        Create Internship
+                    {% endif %}
                 </button>
 
             </div>

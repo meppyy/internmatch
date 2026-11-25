@@ -119,6 +119,14 @@
                             <div class="listing-actions">
 
                                 <a class="secondary-button"
+                                    href="{{ url_for(
+                                        'recruiter.edit_internship',
+                                        internship_id=internship.internship_id
+                                    ) }}">
+                                    Edit Listing
+                                </a>
+
+                                <a class="secondary-button"
                                    href="{{ url_for(
                                        'recruiter.internship_details',
                                        internship_id=internship.internship_id

@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
+from datetime import date, timedelta
 
 from app.models import (
     User, RecruiterProfile, StudentProfile,
@@ -149,6 +150,186 @@ def create_recruiter_internship(app, email, title):
         db.session.commit()
 
         return recruiter_user.email, internship.internship_id
+
+
+def valid_internship_edit_data(**overrides):
+    data = {
+        "title": "Updated Backend Internship",
+        "description": "Develop backend applications using Python.",
+        "location": "New Delhi",
+        "work_mode": "Hybrid",
+        "duration": "3 Months",
+        "stipend": "12000",
+        "eligibility": "Currently enrolled college students.",
+        "deadline": (
+            date.today() + timedelta(days=45)
+        ).isoformat(),
+        "status": "Closed",
+        "required_skills": "Python, SQL"
+    }
+
+    data.update(overrides)
+    return data
+
+
+def test_recruiter_can_edit_own_internship(client, app):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "edit-owner@test.com",
+        "Original Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+
+        original_created_at = internship.created_at
+
+        old_skill = Skill(skill_name="Java")
+        db.session.add(old_skill)
+        internship.skills.append(old_skill)
+
+        db.session.commit()
+
+    login(client, email, "TestPassword123")
+
+    # Verify the edit form loads with existing information.
+    page = client.get(
+        f"/recruiter/internships/{internship_id}/edit"
+    )
+
+    assert page.status_code == 200
+    assert b"Edit Internship" in page.data
+    assert b"Original Internship" in page.data
+    assert b"Save Changes" in page.data
+
+    application = db.session.get(
+        Application, application_id
+    )
+
+    assert application is not None
+    assert application.internship_id == internship_id
+    assert application.status == "Under Review"
+
+    # Submit the updated internship information.
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/edit",
+        data=valid_internship_edit_data()
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith(
+        f"/recruiter/internships/{internship_id}"
+    )
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+
+        assert internship.title == "Updated Backend Internship"
+        assert internship.description == (
+            "Develop backend applications using Python."
+        )
+        assert internship.location == "New Delhi"
+        assert internship.work_mode == "Hybrid"
+        assert internship.duration == "3 Months"
+        assert internship.stipend == "12000"
+        assert internship.eligibility == (
+            "Currently enrolled college students."
+        )
+        assert internship.status == "Closed"
+
+        assert internship.required_skills == "Python, SQL"
+
+        assert {
+            skill.skill_name for skill in internship.skills
+        } == {"Python", "SQL"}
+
+        # Editing must not change the listing identity or creation date.
+        assert internship.internship_id == internship_id
+        assert internship.created_at == original_created_at
+        assert internship.company_name == "Test Company"
+
+    listings_page = client.get("/recruiter/internships")
+
+    assert b"Updated Backend Internship" in listings_page.data
+    assert b"Edit Listing" in listings_page.data
+
+
+def test_recruiter_cannot_edit_another_recruiters_internship(
+    client, app
+):
+    owner_email, _ = create_recruiter_internship(
+        app,
+        "first-edit-owner@test.com",
+        "First Owner Internship"
+    )
+
+    _, other_internship_id = create_recruiter_internship(
+        app,
+        "second-edit-owner@test.com",
+        "Second Owner Internship"
+    )
+
+    login(client, owner_email, "TestPassword123")
+
+    edit_url = (
+        f"/recruiter/internships/{other_internship_id}/edit"
+    )
+
+    # Another recruiter's listing must not be editable.
+    get_response = client.get(edit_url)
+    assert get_response.status_code == 404
+
+    post_response = client.post(
+        edit_url,
+        data={"title": "Unauthorized Modification"}
+    )
+
+    assert post_response.status_code == 404
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, other_internship_id
+        )
+
+        assert internship.title == "Second Owner Internship"
+
+
+def test_recruiter_cannot_save_invalid_internship_changes(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "invalid-edit-owner@test.com",
+        "Original Internship"
+    )
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/edit",
+        data=valid_internship_edit_data(
+            work_mode="Invalid Mode"
+        )
+    )
+
+    assert response.status_code == 200
+    assert b"Invalid work mode." in response.data
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+
+        # Invalid submissions must not modify existing data.
+        assert internship.title == "Original Internship"
 
 def create_applicant_for_internship(app, internship_id):
     with app.app_context():

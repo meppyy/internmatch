@@ -454,41 +454,162 @@ def internship_applications(internship_id):
         recruiter_id=recruiter_profile.recruiter_id
     ).first_or_404()
 
-    # Fetch applications with newest applications first.
-    applications = Application.query.filter_by(
+    # Fetch all applications, newest first.
+    all_applications = Application.query.filter_by(
         internship_id=internship.internship_id
     ).order_by(
         Application.application_date.desc()
     ).all()
 
-    # Calculate the skill match dynamically for every applicant.
+    total_applications = len(all_applications)
+
+    # Calculate skill matches dynamically.
     skill_matches = {
         application.application_id: calculate_skill_match(
             application.student,
             internship
         )
-        for application in applications
+        for application in all_applications
     }
 
-    # Rank applicants by match score, highest first.
-    # Equal scores retain the existing newest-first application order.
-    # Applicants without a defined match score appear last.
-    applications.sort(
-        key=lambda application: (
-            skill_matches[application.application_id]["score"] is None,
-            -(
-                skill_matches[application.application_id]["score"]
-                if skill_matches[application.application_id]["score"] is not None
+    applications = all_applications.copy()
+
+    # Filter by application status.
+    allowed_statuses = {
+        "Applied",
+        "Under Review",
+        "Shortlisted",
+        "Selected",
+        "Rejected"
+    }
+
+    status_filter = request.args.get("status", "").strip()
+
+    if status_filter:
+        if status_filter in allowed_statuses:
+            applications = [
+                application
+                for application in applications
+                if application.status == status_filter
+            ]
+        else:
+            flash("Invalid application status filter.", "error")
+
+    # Parse inclusive application-date filters.
+    date_from_input = request.args.get("date_from", "").strip()
+    date_to_input = request.args.get("date_to", "").strip()
+
+    date_from = None
+    date_to = None
+    invalid_date_filter = False
+
+    if date_from_input:
+        try:
+            date_from = datetime.strptime(
+                date_from_input, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            invalid_date_filter = True
+
+    if date_to_input:
+        try:
+            date_to = datetime.strptime(
+                date_to_input, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            invalid_date_filter = True
+
+    if date_from and date_to and date_from > date_to:
+        invalid_date_filter = True
+
+    if invalid_date_filter:
+        flash("Invalid application date filter.", "error")
+    else:
+        if date_from:
+            applications = [
+                application
+                for application in applications
+                if application.application_date.date() >= date_from
+            ]
+
+        if date_to:
+            applications = [
+                application
+                for application in applications
+                if application.application_date.date() <= date_to
+            ]
+
+    # Supported sorting options.
+    allowed_sorts = {
+        "match_score_desc",
+        "match_score_asc",
+        "application_date_desc",
+        "application_date_asc"
+    }
+
+    sort_by = request.args.get(
+        "sort_by", "match_score_desc"
+    ).strip()
+
+    if sort_by not in allowed_sorts:
+        sort_by = "match_score_desc"
+
+    def match_score(application):
+        return skill_matches[
+            application.application_id
+        ]["score"]
+
+    # Stable sorting preserves application-date order for
+    # applicants with equal match scores.
+    if sort_by == "match_score_asc":
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                match_score(application)
+                if match_score(application) is not None
                 else 0
             )
         )
-    )
+
+    elif sort_by == "application_date_desc":
+        # Use match score as the secondary ordering.
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
+        applications.sort(
+            key=lambda application: application.application_date,
+            reverse=True
+        )
+
+    elif sort_by == "application_date_asc":
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
+        applications.sort(
+            key=lambda application: application.application_date
+        )
+
+    else:
+        # Default: highest match score first.
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
 
     return render_template(
         "recruiter/applications.html",
         internship=internship,
         applications=applications,
-        skill_matches=skill_matches
+        skill_matches=skill_matches,
+        total_applications=total_applications
     )
 
 @recruiter.route(

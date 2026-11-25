@@ -984,3 +984,224 @@ def test_recruiter_cannot_delete_another_recruiters_internship(
 
         assert internship is not None
         assert internship.title == "Another Recruiter's Internship"
+
+def create_applicant_filter_dataset(app, internship_id):
+    records = [
+        {
+            "name": "Recent Shortlisted",
+            "email": "recent-shortlisted@test.com",
+            "skills": ["Python"],
+            "date": datetime(2026, 11, 25, 12),
+            "status": "Shortlisted"
+        },
+        {
+            "name": "Earlier Shortlisted",
+            "email": "earlier-shortlisted@test.com",
+            "skills": ["Python", "SQL"],
+            "date": datetime(2026, 11, 23, 12),
+            "status": "Shortlisted"
+        },
+        {
+            "name": "Rejected Candidate",
+            "email": "rejected-candidate@test.com",
+            "skills": ["Python", "SQL", "Flask"],
+            "date": datetime(2026, 11, 24, 12),
+            "status": "Rejected"
+        },
+        {
+            "name": "Under Review Candidate",
+            "email": "under-review@test.com",
+            "skills": ["SQL"],
+            "date": datetime(2026, 11, 22, 12),
+            "status": "Under Review"
+        },
+        {
+            "name": "Applied Candidate",
+            "email": "applied-candidate@test.com",
+            "skills": [],
+            "date": datetime(2026, 11, 21, 12),
+            "status": "Applied"
+        }
+    ]
+
+    with app.app_context():
+        internship = db.session.get(Internship, internship_id)
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        for skill_name in ["Python", "SQL", "Flask", "Git"]:
+            internship.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        for record in records:
+            user = create_user(
+                db.session,
+                name=record["name"],
+                email=record["email"],
+                role="student"
+            )
+
+            profile = StudentProfile(user_id=user.user_id)
+            db.session.add(profile)
+            db.session.flush()
+
+            for skill_name in record["skills"]:
+                profile.skills.append(
+                    get_or_create_skill(skill_name)
+                )
+
+            application = Application(
+                student_id=profile.student_id,
+                internship_id=internship_id,
+                application_date=record["date"],
+                status=record["status"]
+            )
+            db.session.add(application)
+
+        db.session.commit()
+
+def test_recruiter_can_filter_applicants_by_status_and_date(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "filter-applicants@test.com",
+        "Applicant Filtering Internship"
+    )
+
+    create_applicant_filter_dataset(app, internship_id)
+
+    login(client, email, "TestPassword123")
+
+    url = f"/recruiter/internships/{internship_id}/applications"
+
+    # Status and date filters together.
+    response = client.get(
+        url,
+        query_string={
+            "status": "Shortlisted",
+            "date_from": "2026-11-24",
+            "date_to": "2026-11-25"
+        }
+    )
+
+    assert response.status_code == 200
+    assert b"Recent Shortlisted" in response.data
+    assert b"Earlier Shortlisted" not in response.data
+    assert b"Rejected Candidate" not in response.data
+
+    # Date filtering without a status restriction.
+    date_response = client.get(
+        url,
+        query_string={
+            "date_from": "2026-11-23",
+            "date_to": "2026-11-24"
+        }
+    )
+
+    assert b"Earlier Shortlisted" in date_response.data
+    assert b"Rejected Candidate" in date_response.data
+    assert b"Recent Shortlisted" not in date_response.data
+    assert b"Under Review Candidate" not in date_response.data
+
+
+def test_recruiter_can_sort_applicants_by_date_and_match_score(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "sort-applicants@test.com",
+        "Applicant Sorting Internship"
+    )
+
+    create_applicant_filter_dataset(app, internship_id)
+
+    login(client, email, "TestPassword123")
+
+    url = f"/recruiter/internships/{internship_id}/applications"
+
+    # Oldest application first.
+    date_response = client.get(
+        url,
+        query_string={"sort_by": "application_date_asc"}
+    )
+
+    expected_date_order = [
+        "Applied Candidate",
+        "Under Review Candidate",
+        "Earlier Shortlisted",
+        "Rejected Candidate",
+        "Recent Shortlisted"
+    ]
+
+    date_positions = [
+        date_response.data.index(name.encode())
+        for name in expected_date_order
+    ]
+
+    assert date_positions == sorted(date_positions)
+
+    # Lowest match score first; applicants without a score remain last.
+    score_response = client.get(
+        url,
+        query_string={"sort_by": "match_score_asc"}
+    )
+
+    expected_score_order = [
+        "Applied Candidate",
+        "Recent Shortlisted",
+        "Under Review Candidate",
+        "Earlier Shortlisted",
+        "Rejected Candidate"
+    ]
+
+    score_positions = [
+        score_response.data.index(name.encode())
+        for name in expected_score_order
+    ]
+
+    assert score_positions == sorted(score_positions)
+
+def test_recruiter_applicant_filter_controls_preserve_selections(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "filter-controls@test.com",
+        "Filter Controls Internship"
+    )
+
+    create_applicant_filter_dataset(app, internship_id)
+
+    login(client, email, "TestPassword123")
+
+    response = client.get(
+        f"/recruiter/internships/{internship_id}/applications",
+        query_string={
+            "status": "Shortlisted",
+            "date_from": "2026-11-25",
+            "date_to": "2026-11-25",
+            "sort_by": "application_date_asc"
+        }
+    )
+
+    assert response.status_code == 200
+    assert b"Applicant Filters" in response.data
+    assert b'name="status"' in response.data
+    assert b'value="Shortlisted" selected' in response.data
+    assert b'name="date_from"' in response.data
+    assert b'name="date_to"' in response.data
+    assert b'value="application_date_asc" selected' in response.data
+    normalized_response = b" ".join(response.data.split())
+    assert b"Showing 1 of 5 applicants" in normalized_response

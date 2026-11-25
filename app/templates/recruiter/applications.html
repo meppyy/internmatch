@@ -47,7 +47,7 @@
             <div>
                 <span class="stat-label">TOTAL APPLICANTS</span>
                 <strong class="stat-value">
-                    {{ applications|length }}
+                    {{ total_applications }}
                 </strong>
             </div>
 
@@ -61,6 +61,114 @@
                 </p>
             </div>
         </div>
+
+                <section class="filter-card applicant-filter-card">
+
+            <form
+                method="GET"
+                action="{{ url_for(
+                    'recruiter.internship_applications',
+                    internship_id=internship.internship_id
+                ) }}"
+                class="applicant-filter-form"
+            >
+
+                <h3>Applicant Filters</h3>
+
+                <div class="applicant-filter-grid">
+
+                    <div class="form-group">
+                        <label for="applicant-status">Application Status</label>
+                        <select id="applicant-status" name="status">
+                            <option value="">All statuses</option>
+                            {% for status in [
+                                "Applied",
+                                "Under Review",
+                                "Shortlisted",
+                                "Selected",
+                                "Rejected"
+                            ] %}
+                                <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date-from">From Date</label>
+                        <input
+                            type="date"
+                            id="date-from"
+                            name="date_from"
+                            value="{{ request.args.get('date_from', '') }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date-to">To Date</label>
+                        <input
+                            type="date"
+                            id="date-to"
+                            name="date_to"
+                            value="{{ request.args.get('date_to', '') }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="applicant-sort">Sort Applicants</label>
+                        <select id="applicant-sort" name="sort_by">
+
+                            <option value="match_score_desc"
+                                {% if request.args.get('sort_by', 'match_score_desc') == 'match_score_desc' %}selected{% endif %}>
+                                Match Score: Highest First
+                            </option>
+
+                            <option value="match_score_asc"
+                                {% if request.args.get('sort_by') == 'match_score_asc' %}selected{% endif %}>
+                                Match Score: Lowest First
+                            </option>
+
+                            <option value="application_date_desc"
+                                {% if request.args.get('sort_by') == 'application_date_desc' %}selected{% endif %}>
+                                Application Date: Newest First
+                            </option>
+
+                            <option value="application_date_asc" {% if request.args.get('sort_by') == 'application_date_asc' %}selected{% endif %}>
+                                Application Date: Oldest First
+                            </option>
+
+                        </select>
+                    </div>
+
+                </div>
+
+                <div class="applicant-filter-actions">
+
+                    <button type="submit" class="primary-button">
+                        Apply Filters
+                    </button>
+
+                    <a
+                        class="secondary-button"
+                        href="{{ url_for(
+                            'recruiter.internship_applications',
+                            internship_id=internship.internship_id
+                        ) }}"
+                    >
+                        Clear Filters
+                    </a>
+
+                </div>
+
+            </form>
+
+        </section>
+
+        <p class="applicant-result-count">
+            Showing {{ applications|length }} of
+            {{ total_applications }} applicants
+        </p>
 
         {% if applications %}
 
@@ -343,21 +451,44 @@
 
         {% else %}
 
-            <div class="empty-state">
+                        <div class="empty-state">
 
                 <div class="empty-icon">▤</div>
 
-                <h2>No Applications Yet</h2>
+                {% if total_applications > 0 %}
 
-                <p>
-                    No applications have been submitted yet.
-                    Check back when students start applying.
-                </p>
+                    <h2>No Matching Applicants</h2>
 
-                <a class="primary-button"
-                   href="{{ url_for('recruiter.internships') }}">
-                    Back to My Internships
-                </a>
+                    <p>
+                        No applicants match your selected filters.
+                        Try changing your filters or clearing them.
+                    </p>
+
+                    <a
+                        class="secondary-button"
+                        href="{{ url_for(
+                            'recruiter.internship_applications',
+                            internship_id=internship.internship_id
+                        ) }}"
+                    >
+                        Clear Filters
+                    </a>
+
+                {% else %}
+
+                    <h2>No Applications Yet</h2>
+
+                    <p>
+                        No applications have been submitted yet.
+                        Check back when students start applying.
+                    </p>
+
+                    <a class="primary-button"
+                       href="{{ url_for('recruiter.internships') }}">
+                        Back to My Internships
+                    </a>
+
+                {% endif %}
 
             </div>
 

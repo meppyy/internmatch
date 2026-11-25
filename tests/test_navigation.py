@@ -42,9 +42,14 @@ def create_user(app, role):
 
 
 def authenticate_as(client, user_id):
+    with client.application.app_context():
+        user = db.session.get(User, user_id)
+        session_version = user.session_version
+
     with client.session_transaction() as session:
         session["_user_id"] = str(user_id)
         session["_fresh"] = True
+        session["user_session_version"] = session_version
 
 
 def test_guest_navigation_shows_login_and_registration(client):

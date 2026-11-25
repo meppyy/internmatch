@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 from datetime import datetime
 
 from app import admin
@@ -87,4 +87,15 @@ def create_app(test_config=None):
 @login_manager.user_loader
 def load_user(user_id):
     from .models.user import User
-    return User.query.get(int(user_id))
+
+    user = User.query.get(int(user_id))
+
+    if user is None or not user.is_active:
+        return None
+
+    # Reject sessions created before the account's
+    # session version was last changed.
+    if session.get("user_session_version") != user.session_version:
+        return None
+
+    return user

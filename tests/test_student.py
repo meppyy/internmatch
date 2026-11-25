@@ -56,6 +56,7 @@ def login_student(client, student_user):
     with client.session_transaction() as session:
         session["_user_id"] = str(student_user.user_id)
         session["_fresh"] = True
+        session["user_session_version"] = student_user.session_version
 
 
 def test_student_dashboard_requires_login(client):

@@ -32,6 +32,14 @@
             </div>
         </div>
 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
         <section class="dashboard-section">
 
             <div class="section-title">
@@ -86,6 +94,55 @@
                                     </div>
 
                                 </div>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Account Status</h3>
+
+                                <div class="listing-meta">
+                                    <div>
+                                        <span>Account Status</span>
+                                        <strong>
+                                            {% if user.is_active %}
+                                                Active
+                                            {% else %}
+                                                Disabled
+                                            {% endif %}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                {% if user.user_id != current_user.user_id %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for(
+                                            'admin.update_user_status',
+                                            user_id=user.user_id
+                                        ) }}"
+                                        class="inline-form"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            name="action"
+                                            value="{{ 'disable' if user.is_active else 'enable' }}"
+                                            class="{{ 'danger-button' if user.is_active else 'primary-button' }}"
+                                        >
+                                            {{ 'Disable Account' if user.is_active else 'Enable Account' }}
+                                        </button>
+
+                                    </form>
+
+                                {% endif %}
 
                             </div>
 

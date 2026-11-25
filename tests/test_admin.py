@@ -1039,3 +1039,131 @@ def test_non_admin_cannot_manage_platform_internships(
         internship = db.session.get(Internship, internship_id)
         assert internship is not None
         assert internship.status == "Draft"
+
+def test_admin_can_monitor_all_platform_applications(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "monitor-admin@test.com", "admin"
+        )
+
+        first_internship_id = create_recruiter_internship(
+            "monitor-recruiter-1@test.com",
+            "Python Internship"
+        )
+
+        second_internship_id = create_recruiter_internship(
+            "monitor-recruiter-2@test.com",
+            "Data Science Internship"
+        )
+
+        first_student = create_user(
+            "Candidate One", "candidate-one@test.com", "student"
+        )
+        first_profile = StudentProfile(
+            user_id=first_student.user_id
+        )
+        db.session.add(first_profile)
+        db.session.flush()
+
+        second_student = create_user(
+            "Candidate Two", "candidate-two@test.com", "student"
+        )
+        second_profile = StudentProfile(
+            user_id=second_student.user_id
+        )
+        db.session.add(second_profile)
+        db.session.flush()
+
+        first_application = Application(
+            student_id=first_profile.student_id,
+            internship_id=first_internship_id,
+            status="Under Review"
+        )
+
+        second_application = Application(
+            student_id=second_profile.student_id,
+            internship_id=second_internship_id,
+            status="Rejected"
+        )
+
+        db.session.add_all([
+            first_application,
+            second_application
+        ])
+        db.session.commit()
+
+        first_application_id = first_application.application_id
+        second_application_id = second_application.application_id
+
+    login_as(client, "monitor-admin@test.com")
+
+    response = client.get("/admin/applications")
+
+    assert response.status_code == 200
+    assert b"Application Monitoring" in response.data
+
+    assert b"Candidate One" in response.data
+    assert b"candidate-one@test.com" in response.data
+    assert b"Python Internship" in response.data
+    assert b"Python Internship Recruiter" in response.data
+
+    assert b"Candidate Two" in response.data
+    assert b"candidate-two@test.com" in response.data
+    assert b"Data Science Internship" in response.data
+    assert b"Data Science Internship Recruiter" in response.data
+
+    assert b"Under Review" in response.data
+    assert b"Rejected" in response.data
+
+    normalized_response = b" ".join(response.data.split())
+    assert b"Total Applications: 2" in normalized_response
+
+    # Application monitoring must not expose credentials.
+    assert b"password_hash" not in response.data
+    assert b"resume.file_path" not in response.data
+
+    # Monitoring is read-only: there must be no POST endpoint.
+    post_response = client.post("/admin/applications")
+    assert post_response.status_code == 405
+
+    with app.app_context():
+        first_application = db.session.get(
+            Application, first_application_id
+        )
+        second_application = db.session.get(
+            Application, second_application_id
+        )
+
+        assert first_application.status == "Under Review"
+        assert second_application.status == "Rejected"
+
+@pytest.mark.parametrize("role", ["student", "recruiter"])
+def test_non_admin_cannot_monitor_platform_applications(
+    client, app, role
+):
+    with app.app_context():
+        create_user(
+            f"Test {role.title()}",
+            f"monitor-blocked-{role}@test.com",
+            role
+        )
+        db.session.commit()
+
+    login_as(
+        client,
+        f"monitor-blocked-{role}@test.com"
+    )
+
+    response = client.get("/admin/applications")
+
+    assert response.status_code == 403
+
+def test_platform_application_monitoring_requires_login(
+    client
+):
+    response = client.get("/admin/applications")
+
+    assert response.status_code == 302
+    assert "/auth/login" in response.headers["Location"]

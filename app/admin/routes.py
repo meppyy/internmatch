@@ -11,6 +11,7 @@ from ..models.student import StudentProfile
 from ..models.recruiter import RecruiterProfile
 from ..models.internship import Internship
 from ..models.application import Application
+from sqlalchemy.orm import joinedload
 
 
 @admin.route("/dashboard")
@@ -300,3 +301,35 @@ def delete_user(user_id):
         flash("Account deleted successfully.", "success")
 
     return redirect(url_for("admin.user_management"))
+
+@admin.route("/applications", methods=["GET"])
+@role_required("admin")
+def application_monitor():
+    applications = (
+        Application.query
+        .options(
+            joinedload(
+                Application.student
+            ).joinedload(
+                StudentProfile.user
+            ),
+            joinedload(
+                Application.internship
+            ).joinedload(
+                Internship.recruiter
+            ).joinedload(
+                RecruiterProfile.user
+            )
+        )
+        .order_by(
+            Application.application_date.desc(),
+            Application.application_id.desc()
+        )
+        .all()
+    )
+
+    return render_template(
+        "admin/applications.html",
+        applications=applications,
+        total_applications=len(applications)
+    )

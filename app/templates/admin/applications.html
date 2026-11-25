@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Application Monitoring - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            &larr; Back to Admin Dashboard
+        </a>
+
+        <h1>Platform Application Monitoring</h1>
+
+        <p>
+            View application records across all students,
+            recruiters, and internships on the platform.
+        </p>
+
+        <p>
+            <strong>Total Applications: {{ total_applications }}</strong>
+        </p>
+
+        {% if applications %}
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Internship</th>
+                            <th>Recruiter</th>
+                            <th>Application Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for application in applications %}
+                            <tr>
+                                <td>
+                                    <strong>
+                                        {{ application.student.user.name }}
+                                    </strong>
+                                    <br>
+                                    {{ application.student.user.email }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ application.internship.title }}
+                                    </strong>
+                                    <br>
+                                    {{ application.internship.company_name }}
+                                </td>
+
+                                <td>
+                                    {{ application.internship.recruiter.user.name }}
+                                </td>
+
+                                <td>
+                                    {{ application.application_date.strftime(
+                                        "%d %b %Y, %I:%M %p"
+                                    ) }}
+                                </td>
+
+                                <td>
+                                    {{ application.status }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        {% else %}
+
+            <p>No applications have been submitted yet.</p>
+
+        {% endif %}
+
+    </main>
+
+</body>
+</html>

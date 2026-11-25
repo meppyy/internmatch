@@ -800,6 +800,41 @@ def test_student_cannot_apply_twice(
 
         assert count == 1
 
+def test_student_cannot_apply_to_closed_internship(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-closed@test.com",
+        [{
+            "title": "Closed Application Test Internship",
+            "status": "Closed"
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    # A direct POST must not bypass the Closed listing restriction.
+    response = client.post(
+        f"/student/internships/{internship_id}/apply"
+    )
+
+    assert response.status_code == 404
+
+    # No application should be created.
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 0
+
 def test_student_application_history_requires_login(client):
     response = client.get("/student/applications")
 

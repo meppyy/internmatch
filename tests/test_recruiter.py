@@ -4,8 +4,8 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from datetime import date, timedelta
 
+from datetime import date, timedelta, datetime
 from app.models import (
     User, RecruiterProfile, StudentProfile,
     Internship, Application, Resume, Skill
@@ -539,6 +539,117 @@ def test_recruiter_can_view_applicant_skill_match(client, app):
     assert b"SQL" in response.data
     assert b"Missing Skills" in response.data
     assert b"Flask" in response.data
+
+def test_recruiter_sees_applicants_ranked_by_match_then_application_date(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "applicant-ranking@test.com",
+        "Applicant Ranking Internship"
+    )
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # The internship requires three skills.
+        required_skills = [
+            get_or_create_skill(name)
+            for name in ["Python", "SQL", "Flask"]
+        ]
+        internship.skills.extend(required_skills)
+
+        applicants = [
+            {
+                "name": "Highest Match",
+                "email": "highest-match@test.com",
+                "skills": ["Python", "SQL", "Flask"],
+                "date": datetime(2026, 11, 20)
+            },
+            {
+                "name": "Tied Match Newer",
+                "email": "tied-newer@test.com",
+                "skills": ["Python", "SQL"],
+                "date": datetime(2026, 11, 24)
+            },
+            {
+                "name": "Tied Match Older",
+                "email": "tied-older@test.com",
+                "skills": ["Python", "SQL"],
+                "date": datetime(2026, 11, 22)
+            },
+            {
+                "name": "Lower Match",
+                "email": "lower-match@test.com",
+                "skills": ["Python"],
+                "date": datetime(2026, 11, 25)
+            }
+        ]
+
+        for applicant in applicants:
+            user = create_user(
+                db.session,
+                name=applicant["name"],
+                email=applicant["email"],
+                role="student"
+            )
+
+            profile = StudentProfile(
+                user_id=user.user_id
+            )
+            db.session.add(profile)
+            db.session.flush()
+
+            for skill_name in applicant["skills"]:
+                profile.skills.append(
+                    get_or_create_skill(skill_name)
+                )
+
+            application = Application(
+                student_id=profile.student_id,
+                internship_id=internship_id,
+                application_date=applicant["date"],
+                status="Under Review"
+            )
+            db.session.add(application)
+
+        db.session.commit()
+
+    login(client, email, "TestPassword123")
+
+    response = client.get(
+        f"/recruiter/internships/{internship_id}/applications"
+    )
+
+    assert response.status_code == 200
+
+    expected_order = [
+        "Highest Match",
+        "Tied Match Newer",
+        "Tied Match Older",
+        "Lower Match"
+    ]
+
+    positions = [
+        response.data.index(name.encode())
+        for name in expected_order
+    ]
+
+    assert positions == sorted(positions)
 
 def test_recruiter_cannot_view_another_recruiters_applicants(
     client, app

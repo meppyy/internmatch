@@ -454,13 +454,14 @@ def internship_applications(internship_id):
         recruiter_id=recruiter_profile.recruiter_id
     ).first_or_404()
 
+    # Fetch applications with newest applications first.
     applications = Application.query.filter_by(
         internship_id=internship.internship_id
     ).order_by(
         Application.application_date.desc()
     ).all()
 
-    # Calculate the skill match separately for every applicant.
+    # Calculate the skill match dynamically for every applicant.
     skill_matches = {
         application.application_id: calculate_skill_match(
             application.student,
@@ -468,6 +469,20 @@ def internship_applications(internship_id):
         )
         for application in applications
     }
+
+    # Rank applicants by match score, highest first.
+    # Equal scores retain the existing newest-first application order.
+    # Applicants without a defined match score appear last.
+    applications.sort(
+        key=lambda application: (
+            skill_matches[application.application_id]["score"] is None,
+            -(
+                skill_matches[application.application_id]["score"]
+                if skill_matches[application.application_id]["score"] is not None
+                else 0
+            )
+        )
+    )
 
     return render_template(
         "recruiter/applications.html",

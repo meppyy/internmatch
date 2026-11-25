@@ -4,164 +4,286 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse Internships - InternMatch</title>
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/app.css') }}">
-</head>
 
-<body class="app-page">
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
 
     {% include "_navigation.html" %}
 
-    <main>
-        <h1>Available Internships</h1>
+    <main class="page-container">
+
+        <div class="page-heading">
+            <span class="eyebrow">EXPLORE OPPORTUNITIES</span>
+            <h1>Available Internships</h1>
+            <p>
+                Discover opportunities that align with your skills
+                and interests.
+            </p>
+        </div>
 
         <form method="GET"
-      action="{{ url_for('student.browse_internships') }}">
+              action="{{ url_for('student.browse_internships') }}"
+              class="filter-card">
 
-    <label for="q">Search internships:</label>
-    <input
-        type="search"
-        id="q"
-        name="q"
-        value="{{ query }}"
-        placeholder="Title, company, location or description"
-    >
+            <div class="form-grid">
 
-    <label for="work_mode">Work Mode:</label>
+                <div class="form-group">
+                    <label for="q">Search Internships</label>
 
-    <select id="work_mode" name="work_mode">
-        <option value="">All Work Modes</option>
+                    <input
+                        type="search"
+                        id="q"
+                        name="q"
+                        value="{{ query }}"
+                        placeholder="Title, company, location or description"
+                    >
+                </div>
 
-        <option value="Remote"
-            {% if work_mode == "Remote" %}selected{% endif %}>
-            Remote
-        </option>
+                <div class="form-group">
+                    <label for="work_mode">Work Mode</label>
 
-        <option value="Hybrid"
-            {% if work_mode == "Hybrid" %}selected{% endif %}>
-            Hybrid
-        </option>
+                    <select id="work_mode" name="work_mode">
 
-        <option value="On-site"
-            {% if work_mode == "On-site" %}selected{% endif %}>
-            On-site
-        </option>
-    </select>
+                        <option value="">All Work Modes</option>
 
-    <button type="submit">Search</button>
+                        <option value="Remote"
+                            {% if work_mode == "Remote" %}selected{% endif %}>
+                            Remote
+                        </option>
 
-    <a href="{{ url_for('student.browse_internships') }}">
-        Clear Filters
-    </a>
+                        <option value="Hybrid"
+                            {% if work_mode == "Hybrid" %}selected{% endif %}>
+                            Hybrid
+                        </option>
 
-</form>
+                        <option value="On-site"
+                            {% if work_mode == "On-site" %}selected{% endif %}>
+                            On-site
+                        </option>
+
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="form-actions">
+
+                <button type="submit" class="primary-button">
+                    Search Internships
+                </button>
+
+                <a href="{{ url_for('student.browse_internships') }}"
+                   class="secondary-button">
+                    Clear Filters
+                </a>
+
+            </div>
+
+        </form>
+
+        <div class="section-title">
+            <div>
+                <h2>Available Opportunities</h2>
+                <p>
+                    {{ internships|length }} opportunity/opportunities found.
+                </p>
+            </div>
+        </div>
 
         {% if internships %}
 
-            {% for internship in internships %}
-                <article>
-                    <h2>{{ internship.title }}</h2>
+            <div class="internship-grid">
 
-                    <p>
-                        <strong>Company:</strong>
-                        {{ internship.company_name }}
-                    </p>
+                {% for internship in internships %}
 
-                    <p>
-                        <strong>Location:</strong>
-                        {{ internship.location or "Not specified" }}
-                    </p>
+                    <article class="internship-card">
 
-                    <p>
-                        <strong>Work Mode:</strong>
-                        {{ internship.work_mode or "Not specified" }}
-                    </p>
+                        <div class="listing-card-top">
 
-                    <p>
-                        <strong>Duration:</strong>
-                        {{ internship.duration or "Not specified" }}
-                    </p>
+                            <div>
+                                <h2>{{ internship.title }}</h2>
 
-                    <p>
-                        <strong>Stipend:</strong>
-                        {{ internship.stipend or "Not specified" }}
-                    </p>
+                                <p class="company-name">
+                                    {{ internship.company_name }}
+                                </p>
+                            </div>
 
-                    <p>
-                        <strong>Deadline:</strong>
-                        {{ internship.deadline or "Not specified" }}
-                    </p>
+                            <span class="status-badge status-active">
+                                {{ internship.status }}
+                            </span>
 
-                    <p>{{ internship.description or "No description provided." }}</p>
+                        </div>
 
-                    <h3>Required Skills</h3>
+                        <div class="listing-meta">
 
-                    {% if internship.skills %}
-                        <ul>
-                            {% for skill in internship.skills %}
-                                <li>{{ skill.skill_name }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p>No skills specified.</p>
-                    {% endif %}
+                            <div>
+                                <span>Location</span>
+                                <strong>
+                                    {{ internship.location or "Not specified" }}
+                                </strong>
+                            </div>
 
+                            <div>
+                                <span>Work Mode</span>
+                                <strong>
+                                    {{ internship.work_mode or "Not specified" }}
+                                </strong>
+                            </div>
 
-                    {% set skill_match = skill_matches[internship.internship_id] %}
+                            <div>
+                                <span>Duration</span>
+                                <strong>
+                                    {{ internship.duration or "Not specified" }}
+                                </strong>
+                            </div>
 
-                    <h3>Skill Match</h3>
+                            <div>
+                                <span>Stipend</span>
+                                <strong>
+                                    {{ internship.stipend or "Not specified" }}
+                                </strong>
+                            </div>
 
-                    {% if skill_match.score is not none %}
+                            <div>
+                                <span>Deadline</span>
+                                <strong>
+                                    {{ internship.deadline or "Not specified" }}
+                                </strong>
+                            </div>
+
+                        </div>
 
                         <p>
-                            <strong>Match:</strong>
-                            {{ skill_match.score }}%
+                            {{ internship.description or "No description provided." }}
                         </p>
 
-                        <p>{{ skill_match.explanation }}</p>
+                        <div class="detail-section">
 
-                        <h4>Matched Skills</h4>
+                            <h3>Required Skills</h3>
 
-                        {% if skill_match.matched_skills %}
-                            <ul>
-                                {% for skill in skill_match.matched_skills %}
-                                    <li>{{ skill }}</li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p>No matching skills yet.</p>
-                        {% endif %}
+                            {% if internship.skills %}
 
-                        <h4>Missing Skills</h4>
+                                <div class="skill-list">
 
-                        {% if skill_match.missing_skills %}
-                            <ul>
-                                {% for skill in skill_match.missing_skills %}
-                                    <li>{{ skill }}</li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p>You have all the required skills!</p>
-                        {% endif %}
+                                    {% for skill in internship.skills %}
+                                        <span class="skill-tag">
+                                            {{ skill.skill_name }}
+                                        </span>
+                                    {% endfor %}
 
-                    {% else %}
-                        <p>No skill requirements specified</p>
-                    {% endif %}
+                                </div>
 
-                    
-                    <a href="{{ url_for(
-                        'student.internship_details',
-                        internship_id=internship.internship_id
-                    ) }}">
-                        View Details
-                    </a>
-                </article>
+                            {% else %}
 
-                <hr>
-            {% endfor %}
+                                <p>No skills specified.</p>
+
+                            {% endif %}
+
+                        </div>
+
+                        {% set skill_match = skill_matches[internship.internship_id] %}
+
+                        <div class="detail-section">
+
+                            <h3>Skill Match</h3>
+
+                            {% if skill_match.score is not none %}
+
+                                <div class="match-score">
+                                    {{ skill_match.score }}%
+                                </div>
+
+                                <progress
+                                    class="match-progress"
+                                    value="{{ skill_match.score }}"
+                                    max="100"
+                                    aria-label="Skill match: {{ skill_match.score }} percent"
+                                >
+                                    {{ skill_match.score }}%
+                                </progress>
+
+                                <p class="match-note">
+                                    {{ skill_match.explanation }}
+                                </p>
+
+                                <h4>Matched Skills</h4>
+
+                                {% if skill_match.matched_skills %}
+
+                                    <div class="skill-list">
+
+                                        {% for skill in skill_match.matched_skills %}
+                                            <span class="skill-tag matched">
+                                                {{ skill }}
+                                            </span>
+                                        {% endfor %}
+
+                                    </div>
+
+                                {% else %}
+
+                                    <p>No matching skills yet.</p>
+
+                                {% endif %}
+
+                                <h4>Missing Skills</h4>
+
+                                {% if skill_match.missing_skills %}
+
+                                    <div class="skill-list">
+
+                                        {% for skill in skill_match.missing_skills %}
+                                            <span class="skill-tag missing">
+                                                {{ skill }}
+                                            </span>
+                                        {% endfor %}
+
+                                    </div>
+
+                                {% else %}
+
+                                    <p>You have all the required skills!</p>
+
+                                {% endif %}
+
+                            {% else %}
+
+                                <p>No skill requirements specified</p>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="listing-card-footer">
+
+                            <a class="primary-button"
+                               href="{{ url_for(
+                                   'student.internship_details',
+                                   internship_id=internship.internship_id
+                               ) }}">
+                                View Details
+                            </a>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
 
         {% else %}
-            <p>No active internships are available right now.</p>
+
+            <div class="empty-state">
+                <h2>No active internships are available right now.</h2>
+                <p>
+                    Try changing your filters or check back
+                    for new internship listings.
+                </p>
+            </div>
+
         {% endif %}
 
     </main>

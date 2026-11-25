@@ -227,6 +227,11 @@ def test_recruiter_can_edit_own_internship(client, app):
         f"/recruiter/internships/{internship_id}"
     )
 
+    detail_page = client.get(response.headers["Location"])
+
+    assert detail_page.status_code == 200
+    assert b"Internship updated successfully." in detail_page.data
+
     with app.app_context():
         internship = db.session.get(
             Internship, internship_id

@@ -15,6 +15,7 @@ from ..models.skill import Skill
 from app.models import internship
 from ..services.storage import read_resume_file
 from ..services.skill_matching import calculate_skill_match
+from ..services.date_utils import current_ist_date
 
 
 @recruiter.route("/dashboard")
@@ -147,7 +148,7 @@ def create_internship():
             flash("Invalid application deadline.", "error")
             return render_template("recruiter/create_internship.html")
 
-        if deadline < datetime.now().date():
+        if deadline < current_ist_date():
             flash("Application deadline cannot be in the past.", "error")
             return render_template("recruiter/create_internship.html")
 
@@ -337,7 +338,7 @@ def edit_internship(internship_id):
             flash("Invalid application deadline.", "error")
             return render_edit_form()
 
-        if deadline < datetime.now().date():
+        if deadline < current_ist_date():
             flash("Application deadline cannot be in the past.", "error")
             return render_edit_form()
 

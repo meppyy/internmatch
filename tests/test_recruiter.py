@@ -336,6 +336,85 @@ def test_recruiter_cannot_save_invalid_internship_changes(
         # Invalid submissions must not modify existing data.
         assert internship.title == "Original Internship"
 
+
+def test_recruiter_cannot_create_internship_with_past_ist_deadline(
+    client, app, monkeypatch
+):
+    email, _ = create_recruiter_internship(
+        app,
+        "create-ist-deadline@test.com",
+        "Existing Internship"
+    )
+
+    from app.recruiter import routes as recruiter_routes
+
+    # Simulate an IST calendar date independent of the test machine.
+    monkeypatch.setattr(
+        recruiter_routes,
+        "current_ist_date",
+        lambda: date(2040, 1, 1),
+        raising=False
+    )
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        "/recruiter/internships/create",
+        data=valid_internship_edit_data(
+            title="Past IST Deadline Internship",
+            deadline="2039-12-31"
+        )
+    )
+
+    assert response.status_code == 200
+    assert b"Application deadline cannot be in the past." in response.data
+
+    with app.app_context():
+        internship = Internship.query.filter_by(
+            title="Past IST Deadline Internship"
+        ).first()
+
+        assert internship is None
+
+
+def test_recruiter_cannot_edit_internship_with_past_ist_deadline(
+    client, app, monkeypatch
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "edit-ist-deadline@test.com",
+        "Original Internship"
+    )
+
+    from app.recruiter import routes as recruiter_routes
+
+    monkeypatch.setattr(
+        recruiter_routes,
+        "current_ist_date",
+        lambda: date(2040, 1, 1),
+        raising=False
+    )
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/edit",
+        data=valid_internship_edit_data(
+            title="Incorrectly Updated Internship",
+            deadline="2039-12-31"
+        )
+    )
+
+    assert response.status_code == 200
+    assert b"Application deadline cannot be in the past." in response.data
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+
+        assert internship.title == "Original Internship"
+
 def create_applicant_for_internship(app, internship_id):
     with app.app_context():
         student_user = create_user(

@@ -3,10 +3,13 @@ from urllib import response
 import pytest
 from io import BytesIO
 
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from app import create_app
 from app.extensions import db
 from app.models import User, StudentProfile
 from app.models import Internship, RecruiterProfile, Application, Resume, Skill
+from app.services.date_utils import current_ist_date
 
 
 @pytest.fixture
@@ -834,6 +837,109 @@ def test_student_cannot_apply_to_closed_internship(
         ).count()
 
         assert application_count == 0
+
+
+def test_student_cannot_apply_after_internship_deadline(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-expired@test.com",
+        [{
+            "title": "Expired Deadline Internship",
+            "status": "Active",
+            "deadline": current_ist_date() - timedelta(days=1)
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"The application deadline for this internship has passed."
+        in response.data
+    )
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 0
+
+
+@pytest.mark.parametrize("days_until_deadline", [0, 1])
+def test_student_can_apply_on_or_before_internship_deadline(
+    client, student_user, app, days_until_deadline
+):
+    internship_ids = create_test_internships(
+        app,
+        f"apply-valid-deadline-{days_until_deadline}@test.com",
+        [{
+            "title": "Valid Deadline Internship",
+            "status": "Active",
+            "deadline": current_ist_date() + timedelta(
+                days=days_until_deadline
+            )
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Your application was submitted successfully." in response.data
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 1
+
+def test_current_ist_date_uses_india_calendar_day(monkeypatch):
+    from app.services import date_utils
+
+    class FixedDateTime:
+        @staticmethod
+        def now(tz=None):
+            assert tz == ZoneInfo("Asia/Kolkata")
+
+            utc_time = datetime(
+                2026, 11, 24, 20, 0,
+                tzinfo=timezone.utc
+            )
+
+            return utc_time.astimezone(tz)
+
+    monkeypatch.setattr(
+        date_utils,
+        "datetime",
+        FixedDateTime
+    )
+
+    assert date_utils.current_ist_date() == date(2026, 11, 25)
 
 def test_student_application_history_requires_login(client):
     response = client.get("/student/applications")

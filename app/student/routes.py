@@ -7,6 +7,8 @@ from ..services.storage import (
     delete_resume_file
 )
 
+from ..services.date_utils import current_ist_date
+
 from flask import render_template, request, redirect, url_for, current_app, send_file
 from flask_login import current_user
 from werkzeug.utils import secure_filename
@@ -468,6 +470,20 @@ def apply_to_internship(internship_id):
         internship_id=internship_id,
         status="Active"
     ).first_or_404()
+
+    # Reject applications submitted after the internship deadline.
+    if (
+        internship.deadline
+        and internship.deadline < current_ist_date()
+    ):
+        flash(
+            "The application deadline for this internship has passed.",
+            "error"
+        )
+        return redirect(url_for(
+            "student.internship_details",
+            internship_id=internship_id
+        ))
 
     existing_application = Application.query.filter_by(
         student_id=student_profile.student_id,

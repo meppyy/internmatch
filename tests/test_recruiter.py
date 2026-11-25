@@ -10,6 +10,9 @@ from app.models import (
     User, RecruiterProfile, StudentProfile,
     Internship, Application, Resume, Skill
 )
+from app.models.application_resume_snapshot import (
+    ApplicationResumeSnapshot
+)
 
 
 @pytest.fixture
@@ -874,6 +877,62 @@ def test_recruiter_can_view_only_authorized_applicant_resumes(
 
     student_response = student_client.get(resume_url)
     assert student_response.status_code == 403
+
+
+def test_recruiter_sees_application_resume_snapshot(
+    client, app, tmp_path
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "snapshot-owner@test.com",
+        "Snapshot Test Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    current_resume_content = b"new current student resume"
+    submitted_resume_content = b"original submitted resume"
+
+    current_resume_path = tmp_path / "current_resume.pdf"
+    snapshot_path = tmp_path / "submitted_resume.pdf"
+
+    current_resume_path.write_bytes(current_resume_content)
+    snapshot_path.write_bytes(submitted_resume_content)
+
+    with app.app_context():
+        application = db.session.get(
+            Application, application_id
+        )
+
+        application.resume.file_path = str(
+            current_resume_path
+        )
+
+        application.resume_snapshot = ApplicationResumeSnapshot(
+            file_name="submitted_resume.pdf",
+            file_path=str(snapshot_path)
+        )
+
+        db.session.commit()
+
+    login(client, email, "TestPassword123")
+
+    response = client.get(
+        f"/recruiter/internships/{internship_id}/applications/"
+        f"{application_id}/resume"
+    )
+
+    assert response.status_code == 200
+
+    # The recruiter must receive the original submitted document,
+    # not the student's subsequently updated current resume.
+    assert response.data == submitted_resume_content
+
+    assert response.headers["Content-Disposition"].find(
+        "submitted_resume.pdf"
+    ) != -1
 
 
 def test_recruiter_can_delete_internship_without_applications(

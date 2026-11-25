@@ -655,6 +655,7 @@ def update_application_status(internship_id, application_id):
     ))
 
 
+
 @recruiter.route(
     "/internships/<int:internship_id>/applications/"
     "<int:application_id>/resume"
@@ -665,35 +666,42 @@ def view_applicant_resume(internship_id, application_id):
         user_id=current_user.user_id
     ).first_or_404()
 
-    # Verify that the recruiter owns this internship.
+    # Verify recruiter ownership.
     internship = Internship.query.filter_by(
         internship_id=internship_id,
         recruiter_id=recruiter_profile.recruiter_id
     ).first_or_404()
 
-    # Verify that this application belongs to the internship.
+    # Verify application ownership.
     application = Application.query.filter_by(
         application_id=application_id,
         internship_id=internship.internship_id
     ).first_or_404()
 
-    if not application.resume:
+    # Prefer the immutable application snapshot.
+    # Fall back to the original Resume relationship for older applications.
+    resume_document = (
+        application.resume_snapshot
+        or application.resume
+    )
+
+    if not resume_document:
         abort(404)
 
     try:
         file_content = read_resume_file(
-            application.resume.file_path
+            resume_document.file_path
         )
     except FileNotFoundError:
         abort(404)
 
     content_type, _ = mimetypes.guess_type(
-        application.resume.file_name
+        resume_document.file_name
     )
 
     return send_file(
         BytesIO(file_content),
         mimetype=content_type or "application/octet-stream",
         as_attachment=False,
-        download_name=application.resume.file_name
+        download_name=resume_document.file_name
     )

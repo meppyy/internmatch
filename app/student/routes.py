@@ -4,7 +4,12 @@ from io import BytesIO
 from ..services.storage import (
     save_resume_file,
     read_resume_file,
-    delete_resume_file
+    delete_resume_file,
+    copy_resume_file
+)
+
+from ..models.application_resume_snapshot import (
+    ApplicationResumeSnapshot
 )
 
 from ..services.date_utils import current_ist_date
@@ -497,6 +502,7 @@ def internship_details(internship_id):
     )
 
 
+
 @student.route(
     "/internships/<int:internship_id>/apply",
     methods=["POST"]
@@ -542,6 +548,35 @@ def apply_to_internship(internship_id):
         student_id=student_profile.student_id
     ).first()
 
+    # Create an independent resume copy before creating the application.
+    snapshot_path = None
+
+    if resume:
+        try:
+            snapshot_path = copy_resume_file(
+                resume.file_path,
+                student_profile.student_id,
+                resume.file_name
+            )
+
+        except Exception:
+            current_app.logger.exception(
+                "Could not create an application resume snapshot "
+                "for student %s.",
+                student_profile.student_id
+            )
+
+            flash(
+                "Your application could not be submitted because "
+                "your resume could not be attached. Please try again.",
+                "error"
+            )
+
+            return redirect(url_for(
+                "student.internship_details",
+                internship_id=internship_id
+            ))
+
     application = Application(
         student_id=student_profile.student_id,
         internship_id=internship_id,
@@ -549,15 +584,58 @@ def apply_to_internship(internship_id):
         status="Applied"
     )
 
+    # Store the immutable snapshot separately from the current resume.
+    if snapshot_path:
+        application.resume_snapshot = ApplicationResumeSnapshot(
+            file_name=resume.file_name,
+            file_path=snapshot_path
+        )
+
     db.session.add(application)
 
     try:
         db.session.commit()
+
     except IntegrityError:
         db.session.rollback()
-        flash("You have already applied to this internship.", "error")
+
+        # Clean up the copied file if the application was rejected.
+        if snapshot_path:
+            try:
+                delete_resume_file(snapshot_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not clean up an unused application "
+                    "resume snapshot."
+                )
+
+        flash(
+            "You have already applied to this internship.",
+            "error"
+        )
+
+    except Exception:
+        db.session.rollback()
+
+        # Avoid leaving an orphaned snapshot after a database failure.
+        if snapshot_path:
+            try:
+                delete_resume_file(snapshot_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not clean up an unused application "
+                    "resume snapshot."
+                )
+
+        raise
+
     else:
-        flash("Your application was submitted successfully.", "success")
+        flash(
+            "Your application was submitted successfully.",
+            "success"
+        )
 
     return redirect(url_for(
         "student.internship_details",

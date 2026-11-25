@@ -75,3 +75,10 @@ class Application(db.Model):
         "Resume",
         back_populates="applications"
     )
+
+    resume_snapshot = db.relationship(
+        "ApplicationResumeSnapshot",
+        back_populates="application",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )

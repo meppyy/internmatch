@@ -3,6 +3,7 @@ from urllib import response
 import pytest
 from io import BytesIO
 
+from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app import create_app
@@ -784,11 +785,15 @@ def test_student_can_apply_without_resume(client, student_user, app):
         ).one()
 
         assert application.resume_id is None
-        assert application.status == "Applied"
+        assert application.resume is None
+        assert application.resume_snapshot is None
+
 
 def test_student_application_attaches_existing_resume(
-    client, student_user, app
+    client, student_user, app, tmp_path
 ):
+    app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
+
     internship_ids = create_test_internships(
         app,
         "apply-with-resume@test.com",
@@ -798,6 +803,10 @@ def test_student_application_attaches_existing_resume(
         }]
     )
 
+    original_content = b"original student resume document"
+    original_file = tmp_path / "student_resume.pdf"
+    original_file.write_bytes(original_content)
+
     with app.app_context():
         profile = StudentProfile.query.filter_by(
             user_id=student_user.user_id
@@ -806,11 +815,12 @@ def test_student_application_attaches_existing_resume(
         resume = Resume(
             student_id=profile.student_id,
             file_name="student_resume.pdf",
-            file_path="uploads/student_resume.pdf"
+            file_path=str(original_file)
         )
 
         db.session.add(resume)
         db.session.commit()
+
         resume_id = resume.resume_id
 
     login_student(client, student_user)
@@ -827,6 +837,46 @@ def test_student_application_attaches_existing_resume(
         ).one()
 
         assert application.resume_id == resume_id
+
+        snapshot = application.resume_snapshot
+
+        assert snapshot is not None
+        assert snapshot.file_name == "student_resume.pdf"
+        assert snapshot.file_path != str(original_file)
+
+        snapshot_path = snapshot.file_path
+        snapshot_filename = snapshot.file_name
+
+        with open(snapshot_path, "rb") as snapshot_file:
+            assert snapshot_file.read() == original_content
+
+        # Simulate the student replacing their current resume with Resume B.
+        replacement_content = b"replacement resume B"
+        replacement_file = tmp_path / "replacement_resume.pdf"
+        replacement_file.write_bytes(replacement_content)
+
+        application.resume.file_path = str(replacement_file)
+        application.resume.file_name = "replacement_resume.pdf"
+
+        db.session.commit()
+
+        # Simulate cleanup of the old current resume after replacement.
+        original_file.unlink()
+
+        # The current Resume record should now point to Resume B.
+        assert application.resume.file_name == "replacement_resume.pdf"
+        assert application.resume.file_path == str(replacement_file)
+
+        with open(application.resume.file_path, "rb") as current_file:
+            assert current_file.read() == replacement_content
+
+        # The application's independent snapshot must still contain Resume A.
+        assert application.resume_snapshot.file_path == snapshot_path
+        assert application.resume_snapshot.file_name == snapshot_filename
+
+        with open(application.resume_snapshot.file_path, "rb") as snapshot_file:
+            assert snapshot_file.read() == original_content
+
 
 def test_student_cannot_apply_twice(
     client, student_user, app

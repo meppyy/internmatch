@@ -1,4 +1,5 @@
-
+from io import BytesIO
+from werkzeug.datastructures import FileStorage
 import mimetypes
 import os
 from uuid import uuid4
@@ -85,6 +86,49 @@ def save_resume_file(file_storage, student_id, original_filename):
         return destination
 
     raise ValueError(f"Unsupported storage backend: {backend}")
+
+
+def copy_resume_file(stored_path, student_id, original_filename):
+    """
+    Create an independent copy of an existing resume.
+
+    The source is read using its recorded storage location.
+    The new copy is saved using the currently configured
+    storage backend.
+    """
+
+    if not stored_path:
+        raise ValueError("No existing resume file was provided.")
+
+    filename = secure_filename(original_filename or "")
+
+    if not filename:
+        raise ValueError("Invalid resume filename.")
+
+    # Read the complete original document.
+    content = read_resume_file(stored_path)
+
+    if not content:
+        raise ValueError("The existing resume file is empty.")
+
+    content_type = (
+        mimetypes.guess_type(filename)[0]
+        or "application/octet-stream"
+    )
+
+    # Wrap the original bytes in a new FileStorage object.
+    # save_resume_file generates an independent UUID-based path.
+    copied_file = FileStorage(
+        stream=BytesIO(content),
+        filename=filename,
+        content_type=content_type
+    )
+
+    return save_resume_file(
+        copied_file,
+        student_id,
+        filename
+    )
 
 
 def read_resume_file(stored_path):

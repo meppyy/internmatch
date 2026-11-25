@@ -1,8 +1,26 @@
-import os
+import mimetypes
+from io import BytesIO
+
+from ..services.storage import (
+    save_resume_file,
+    read_resume_file,
+    delete_resume_file,
+    copy_resume_file
+)
+
+from ..models.application_resume_snapshot import (
+    ApplicationResumeSnapshot
+)
+
+from ..services.date_utils import current_ist_date
 
 from flask import render_template, request, redirect, url_for, current_app, send_file
 from flask_login import current_user
 from werkzeug.utils import secure_filename
+
+from flask import flash
+from sqlalchemy.exc import IntegrityError
+from ..models.application import Application
 
 from ..models.resume import Resume
 from . import student
@@ -10,6 +28,11 @@ from ..auth.decorators import role_required
 from ..models.student import StudentProfile
 from ..extensions import db
 from ..models.skill import Skill
+from ..models.internship import Internship
+from sqlalchemy import or_
+from ..services import resume_parser, skill_extractor
+from ..services.skill_matching import calculate_skill_match
+from ..services.skill_gap import analyze_skill_gaps
 
 @student.route("/dashboard")
 @role_required("student")
@@ -126,6 +149,30 @@ def remove_skill(skill_id):
 
     return redirect(url_for("student.skills"))
 
+
+@student.route("/skill-gaps")
+@role_required("student")
+def skill_gap_analysis():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only active internships should influence skill priorities.
+    active_internships = Internship.query.filter_by(
+        status="Active"
+    ).all()
+
+    skill_gaps = analyze_skill_gaps(
+        student_profile,
+        active_internships
+    )
+
+    return render_template(
+        "student/skill_gaps.html",
+        student=student_profile,
+        skill_gaps=skill_gaps
+    )
+
 @student.route("/experience")
 @role_required("student")
 def experience():
@@ -138,6 +185,7 @@ def experience():
         student=student_profile
     )
 
+
 @student.route("/resume/upload", methods=["GET", "POST"])
 @role_required("student")
 def upload_resume():
@@ -148,50 +196,158 @@ def upload_resume():
     if request.method == "POST":
         file = request.files.get("resume")
 
-        if file and file.filename:
-            filename = secure_filename(file.filename)
+        if not file or not file.filename:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Please select a resume file."
+            )
 
-            extension = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+        filename = secure_filename(file.filename)
 
-            allowed_extensions = current_app.config[
-                "ALLOWED_RESUME_EXTENSIONS"
-            ]
+        if not filename or "." not in filename:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Invalid filename. Please upload a PDF or DOCX file."
+            )
 
-            if extension not in allowed_extensions:
-                return render_template(
-                    "student/upload_resume.html",
-                     student=student_profile,
-                    error="Invalid file type. Please upload a PDF, DOC, or DOCX file."
-                )
+        extension = filename.rsplit(".", 1)[1].lower()
 
-            upload_folder = current_app.config["UPLOAD_FOLDER"]
+        allowed_extensions = current_app.config[
+            "ALLOWED_RESUME_EXTENSIONS"
+        ]
 
-            os.makedirs(upload_folder, exist_ok=True)
+        if extension not in allowed_extensions:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Invalid file type. Please upload a PDF or DOCX file."
+            )
 
-            file_path = os.path.join(upload_folder, filename)
-            file.save(file_path)
+        # Validate and extract the document BEFORE storing it.
+        # A valid document with no extractable text returns an empty
+        # string, whereas an invalid document raises ValueError.
+        try:
+            file_content = file.read()
 
-            resume = Resume.query.filter_by(
-                student_id=student_profile.student_id
-            ).first()
+            extracted_text = resume_parser.extract_resume_text(
+                file_content,
+                filename
+            )
 
+        except ValueError as error:
+            current_app.logger.warning(
+                "Resume upload rejected for %s: %s",
+                filename,
+                error
+            )
+
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error=str(error)
+            )
+
+        finally:
+            # Reset the stream so the storage service receives
+            # the complete original document.
+            file.seek(0)
+
+        resume = Resume.query.filter_by(
+            student_id=student_profile.student_id
+        ).first()
+
+        old_file_path = resume.file_path if resume else None
+
+        # Store the validated document.
+        try:
+            new_file_path = save_resume_file(
+                file,
+                student_profile.student_id,
+                filename
+            )
+
+        except ValueError as error:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error=str(error)
+            )
+
+        # Update the database only after successful file storage.
+        try:
             if resume:
-                old_file_path = resume.file_path
-
-                if os.path.exists(old_file_path) and old_file_path != file_path:
-                    os.remove(old_file_path)
-
                 resume.file_name = filename
-                resume.file_path = file_path
+                resume.file_path = new_file_path
+                resume.extracted_text = extracted_text
+
             else:
                 resume = Resume(
                     student_id=student_profile.student_id,
                     file_name=filename,
-                    file_path=file_path
+                    file_path=new_file_path,
+                    extracted_text=extracted_text
                 )
+
                 db.session.add(resume)
 
+            # Automatically add detected skills without removing
+            # skills manually entered by the student.
+            if extracted_text:
+                detected_skills = skill_extractor.extract_skills(
+                    extracted_text
+                )
+
+                for skill_name in detected_skills:
+                    skill = Skill.query.filter_by(
+                        skill_name=skill_name
+                    ).first()
+
+                    if not skill:
+                        skill = Skill(skill_name=skill_name)
+                        db.session.add(skill)
+                        db.session.flush()
+
+                    if skill not in student_profile.skills:
+                        student_profile.skills.append(skill)
+
             db.session.commit()
+
+        except Exception:
+            db.session.rollback()
+
+            # Remove the newly stored file if the database update fails.
+            try:
+                delete_resume_file(new_file_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not clean up the uploaded resume."
+                )
+
+            raise
+
+        # Delete the old file only after the database transaction succeeds.
+        if old_file_path and old_file_path != new_file_path:
+            try:
+                delete_resume_file(old_file_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not delete the previous resume."
+                )
+
+        # A valid scanned PDF can have no selectable text.
+        if not extracted_text:
+            flash(
+                "Resume uploaded successfully, but no selectable text "
+                "was found. Automatic skill extraction was unavailable. "
+                "You can add your skills manually.",
+                "info"
+            )
+
+            return redirect(url_for("student.upload_resume"))
 
         return redirect(url_for("student.profile"))
 
@@ -199,6 +355,7 @@ def upload_resume():
         "student/upload_resume.html",
         student=student_profile
     )
+
 
 @student.route("/resume")
 @role_required("student")
@@ -212,11 +369,16 @@ def view_resume():
 
     resume = student_profile.resume
 
-    if not os.path.exists(resume.file_path):
+    try:
+        file_content = read_resume_file(resume.file_path)
+    except FileNotFoundError:
         return "Resume file not found", 404
 
+    content_type, _ = mimetypes.guess_type(resume.file_name)
+
     return send_file(
-        resume.file_path,
+        BytesIO(file_content),
+        mimetype=content_type or "application/octet-stream",
         as_attachment=False,
         download_name=resume.file_name
     )
@@ -252,4 +414,248 @@ def profile_completion():
         student=student_profile,
         sections=sections,
         percentage=percentage
+    )
+
+
+@student.route("/internships")
+@role_required("student")
+def browse_internships():
+    search_query = request.args.get("q", "").strip()
+    work_mode = request.args.get("work_mode", "").strip()
+
+    internship_query = Internship.query.filter_by(
+        status="Active"
+    )
+
+    if search_query:
+        search_pattern = f"%{search_query}%"
+
+        internship_query = internship_query.filter(
+            or_(
+                Internship.title.ilike(search_pattern),
+                Internship.company_name.ilike(search_pattern),
+                Internship.location.ilike(search_pattern),
+                Internship.description.ilike(search_pattern)
+            )
+        )
+
+    if work_mode:
+        internship_query = internship_query.filter(
+            Internship.work_mode == work_mode
+        )
+
+    # First retrieve the internships.
+    internships = internship_query.order_by(
+        Internship.created_at.desc()
+    ).all()
+
+    # Then retrieve the logged-in student's profile.
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first()
+
+    # Finally calculate a match for each internship.
+    skill_matches = {
+        internship.internship_id: calculate_skill_match(
+            student_profile,
+            internship
+        )
+        for internship in internships
+    }
+
+    return render_template(
+        "student/internships.html",
+        internships=internships,
+        query=search_query,
+        work_mode=work_mode,
+        skill_matches=skill_matches
+    )
+
+
+@student.route("/internships/<int:internship_id>")
+@role_required("student")
+def internship_details(internship_id):
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        status="Active"
+    ).first_or_404()
+
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    existing_application = Application.query.filter_by(
+        student_id=student_profile.student_id,
+        internship_id=internship_id
+    ).first()
+
+    skill_match = calculate_skill_match(
+        student_profile,
+        internship
+    )
+
+    return render_template(
+        "student/internship_details.html",
+        internship=internship,
+        has_applied=existing_application is not None,
+        skill_match=skill_match
+    )
+
+
+
+@student.route(
+    "/internships/<int:internship_id>/apply",
+    methods=["POST"]
+)
+@role_required("student")
+def apply_to_internship(internship_id):
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        status="Active"
+    ).first_or_404()
+
+    # Reject applications submitted after the internship deadline.
+    if (
+        internship.deadline
+        and internship.deadline < current_ist_date()
+    ):
+        flash(
+            "The application deadline for this internship has passed.",
+            "error"
+        )
+        return redirect(url_for(
+            "student.internship_details",
+            internship_id=internship_id
+        ))
+
+    existing_application = Application.query.filter_by(
+        student_id=student_profile.student_id,
+        internship_id=internship_id
+    ).first()
+
+    if existing_application:
+        flash("You have already applied to this internship.", "error")
+        return redirect(url_for(
+            "student.internship_details",
+            internship_id=internship_id
+        ))
+
+    resume = Resume.query.filter_by(
+        student_id=student_profile.student_id
+    ).first()
+
+    # Create an independent resume copy before creating the application.
+    snapshot_path = None
+
+    if resume:
+        try:
+            snapshot_path = copy_resume_file(
+                resume.file_path,
+                student_profile.student_id,
+                resume.file_name
+            )
+
+        except Exception:
+            current_app.logger.exception(
+                "Could not create an application resume snapshot "
+                "for student %s.",
+                student_profile.student_id
+            )
+
+            flash(
+                "Your application could not be submitted because "
+                "your resume could not be attached. Please try again.",
+                "error"
+            )
+
+            return redirect(url_for(
+                "student.internship_details",
+                internship_id=internship_id
+            ))
+
+    application = Application(
+        student_id=student_profile.student_id,
+        internship_id=internship_id,
+        resume_id=resume.resume_id if resume else None,
+        status="Applied"
+    )
+
+    # Store the immutable snapshot separately from the current resume.
+    if snapshot_path:
+        application.resume_snapshot = ApplicationResumeSnapshot(
+            file_name=resume.file_name,
+            file_path=snapshot_path
+        )
+
+    db.session.add(application)
+
+    try:
+        db.session.commit()
+
+    except IntegrityError:
+        db.session.rollback()
+
+        # Clean up the copied file if the application was rejected.
+        if snapshot_path:
+            try:
+                delete_resume_file(snapshot_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not clean up an unused application "
+                    "resume snapshot."
+                )
+
+        flash(
+            "You have already applied to this internship.",
+            "error"
+        )
+
+    except Exception:
+        db.session.rollback()
+
+        # Avoid leaving an orphaned snapshot after a database failure.
+        if snapshot_path:
+            try:
+                delete_resume_file(snapshot_path)
+
+            except Exception:
+                current_app.logger.exception(
+                    "Could not clean up an unused application "
+                    "resume snapshot."
+                )
+
+        raise
+
+    else:
+        flash(
+            "Your application was submitted successfully.",
+            "success"
+        )
+
+    return redirect(url_for(
+        "student.internship_details",
+        internship_id=internship_id
+    ))
+
+@student.route("/applications")
+@role_required("student")
+def application_history():
+    student_profile = StudentProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    applications = Application.query.filter_by(
+        student_id=student_profile.student_id
+    ).order_by(
+        Application.application_date.desc()
+    ).all()
+
+    return render_template(
+        "student/applications.html",
+        applications=applications
     )

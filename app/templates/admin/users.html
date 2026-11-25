@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>User Management - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            ← Back to Admin Dashboard
+        </a>
+
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>User Management</h1>
+                <p>
+                    View and monitor registered accounts
+                    on the InternMatch platform.
+                </p>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Registered Users</h2>
+                    <p>
+                        Total Registered Users: {{ users|length }}
+                    </p>
+                </div>
+            </div>
+
+            {% if users %}
+
+                <div class="recruiter-listing-grid">
+
+                    {% for user in users %}
+
+                        <article class="recruiter-listing-card">
+
+                            <div class="listing-card-top">
+
+                                <div>
+                                    <h2>{{ user.name }}</h2>
+
+                                    <p class="company-name">
+                                        {{ user.role|title }} Account
+                                    </p>
+                                </div>
+
+                                <span class="status-badge">
+                                    {{ user.role|title }}
+                                </span>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Account Information</h3>
+
+                                <div class="listing-meta">
+
+                                    <div>
+                                        <span>Email Address</span>
+                                        <strong>{{ user.email }}</strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Registered On</span>
+                                        <strong>
+                                            {{ user.created_at.strftime("%d %b %Y") }}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Account Status</h3>
+
+                                <div class="listing-meta">
+                                    <div>
+                                        <span>Account Status</span>
+                                        <strong>
+                                            {% if user.is_active %}
+                                                Active
+                                            {% else %}
+                                                Disabled
+                                            {% endif %}
+                                        </strong>
+                                    </div>
+                                </div>
+
+                                {% if user.user_id != current_user.user_id %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for(
+                                            'admin.update_user_status',
+                                            user_id=user.user_id
+                                        ) }}"
+                                        class="inline-form"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            name="action"
+                                            value="{{ 'disable' if user.is_active else 'enable' }}"
+                                            class="{{ 'danger-button' if user.is_active else 'primary-button' }}"
+                                        >
+                                            {{ 'Disable Account' if user.is_active else 'Enable Account' }}
+                                        </button>
+
+                                    </form>
+
+                                {% endif %}
+
+                                {% if not user.is_active and user.user_id != current_user.user_id %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('admin.delete_user', user_id=user.user_id) }}"
+                                        class="inline-form"
+                                        onsubmit="return confirm('Permanently delete this account? This action cannot be undone.');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="danger-button"
+                                        >
+                                            Delete Account
+                                        </button>
+
+                                    </form>
+
+                                {% endif %}
+
+                            </div>
+
+                        </article>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <div class="empty-icon">◎</div>
+
+                    <h2>No Registered Users</h2>
+
+                    <p>
+                        No registered users found.
+                        Accounts will appear here when users join InternMatch.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <div class="page-actions">
+
+            <a class="secondary-button"
+               href="{{ url_for('admin.dashboard') }}">
+                Back to Admin Dashboard
+            </a>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

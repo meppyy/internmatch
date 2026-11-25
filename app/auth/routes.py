@@ -1,5 +1,5 @@
-from flask import flash, redirect, render_template, request, url_for
-from flask_login import login_user, logout_user
+from flask import flash, redirect, render_template, request, url_for, session
+from flask_login import login_user, logout_user, login_required
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .decorators import role_required
@@ -79,9 +79,12 @@ def register():
 
     return render_template("auth/register.html")
 
-@auth.route("/logout")
+@auth.route("/logout", methods=["POST"])
+@login_required
 def logout():
     logout_user()
+    session.pop("user_session_version", None)
+
     flash("You have been logged out.", "success")
     return redirect(url_for("home"))
 
@@ -100,9 +103,27 @@ def login():
             flash("Invalid email or password.", "error")
             return redirect(url_for("auth.login"))
 
+        if not user.is_active:
+            flash("This account has been disabled.", "error")
+            return redirect(url_for("auth.login"))
+
         login_user(user)
 
+        # Associate this login session with the current
+        # account session version.
+        session["user_session_version"] = user.session_version
+
         flash("Login successful.", "success")
+
+        if user.role == "student":
+            return redirect(url_for("student.dashboard"))
+
+        elif user.role == "recruiter":
+            return redirect(url_for("recruiter.dashboard"))
+
+        elif user.role == "admin":
+            return redirect(url_for("admin.dashboard"))
+
         return redirect(url_for("home"))
 
     return render_template("auth/login.html")

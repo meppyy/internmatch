@@ -1,7 +1,11 @@
+import mimetypes
+from io import BytesIO
+
 from datetime import datetime, date
-from flask import render_template, request, flash, abort
+from flask import render_template, request, flash, abort, redirect, url_for, send_file
 from flask_login import current_user
 
+from ..models.application import Application
 from ..extensions import db
 from ..auth.decorators import role_required
 from . import recruiter
@@ -9,6 +13,9 @@ from ..models.recruiter import RecruiterProfile
 from ..models.internship import Internship
 from ..models.skill import Skill
 from app.models import internship
+from ..services.storage import read_resume_file
+from ..services.skill_matching import calculate_skill_match
+from ..services.date_utils import current_ist_date
 
 
 @recruiter.route("/dashboard")
@@ -141,7 +148,7 @@ def create_internship():
             flash("Invalid application deadline.", "error")
             return render_template("recruiter/create_internship.html")
 
-        if deadline < datetime.now().date():
+        if deadline < current_ist_date():
             flash("Application deadline cannot be in the past.", "error")
             return render_template("recruiter/create_internship.html")
 
@@ -243,4 +250,458 @@ def internship_details(internship_id):
     return render_template(
         "recruiter/internship_details.html",
         internship=internship
+    )
+
+@recruiter.route(
+    "/internships/<int:internship_id>/edit",
+    methods=["GET", "POST"]
+)
+@role_required("recruiter")
+def edit_internship(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only the recruiter who owns this listing can edit it.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    def render_edit_form():
+        return render_template(
+            "recruiter/create_internship.html",
+            internship=internship
+        )
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+
+        if not title:
+            flash("Internship title is required.", "error")
+            return render_edit_form()
+
+        description = request.form.get("description", "").strip()
+
+        if not description:
+            flash("Internship description is required.", "error")
+            return render_edit_form()
+
+        location = request.form.get("location", "").strip()
+
+        if not location:
+            flash("Location is required.", "error")
+            return render_edit_form()
+
+        work_mode = request.form.get("work_mode", "")
+
+        if work_mode not in ["Remote", "Hybrid", "On-site"]:
+            flash("Invalid work mode.", "error")
+            return render_edit_form()
+
+        duration = request.form.get("duration", "").strip()
+
+        if not duration:
+            flash("Duration is required.", "error")
+            return render_edit_form()
+
+        stipend = request.form.get("stipend", "").strip()
+
+        try:
+            stipend_value = float(stipend)
+        except ValueError:
+            flash("Stipend must be a number.", "error")
+            return render_edit_form()
+
+        if stipend_value < 0:
+            flash("Stipend cannot be negative.", "error")
+            return render_edit_form()
+
+        eligibility = request.form.get("eligibility", "").strip()
+
+        if not eligibility:
+            flash("Eligibility requirements are required.", "error")
+            return render_edit_form()
+
+        deadline_input = request.form.get("deadline", "").strip()
+
+        if not deadline_input:
+            flash("Application deadline is required.", "error")
+            return render_edit_form()
+
+        try:
+            deadline = datetime.strptime(
+                deadline_input,
+                "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            flash("Invalid application deadline.", "error")
+            return render_edit_form()
+
+        if deadline < current_ist_date():
+            flash("Application deadline cannot be in the past.", "error")
+            return render_edit_form()
+
+        status = request.form.get("status", "").strip()
+
+        if status not in ["Draft", "Active", "Closed"]:
+            flash("Invalid internship status.", "error")
+            return render_edit_form()
+
+        required_skills = request.form.get(
+            "required_skills", ""
+        ).strip()
+
+        skill_names = list(dict.fromkeys(
+            skill.strip()
+            for skill in required_skills.split(",")
+            if skill.strip()
+        ))
+
+        if not skill_names:
+            flash("At least one required skill is needed.", "error")
+            return render_edit_form()
+
+        # Retrieve existing skills or create new ones.
+        updated_skills = []
+
+        for skill_name in skill_names:
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+
+            updated_skills.append(skill)
+
+        # Update the existing internship without creating
+        # a new listing or changing its ownership.
+        internship.title = title
+        internship.description = description
+        internship.location = location
+        internship.work_mode = work_mode
+        internship.duration = duration
+        internship.stipend = stipend
+        internship.eligibility = eligibility
+        internship.deadline = deadline
+        internship.status = status
+
+        internship.required_skills = ", ".join(skill_names)
+        internship.skills = updated_skills
+
+        db.session.commit()
+
+        flash("Internship updated successfully.", "success")
+
+        return redirect(url_for(
+            "recruiter.internship_details",
+            internship_id=internship.internship_id
+        ))
+
+    return render_edit_form()
+
+@recruiter.route(
+    "/internships/<int:internship_id>/delete",
+    methods=["POST"]
+)
+@role_required("recruiter")
+def delete_internship(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only the owner of the listing can delete it.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    # Preserve application history. Listings with applicants
+    # must be closed instead of deleted.
+    existing_application = Application.query.filter_by(
+        internship_id=internship.internship_id
+    ).first()
+
+    if existing_application:
+        flash(
+            "This internship cannot be deleted because students "
+            "have applied. Close the listing instead.",
+            "error"
+        )
+        return redirect(url_for("recruiter.internships"))
+
+    db.session.delete(internship)
+    db.session.commit()
+
+    flash("Internship deleted successfully.", "success")
+
+    return redirect(url_for("recruiter.internships"))
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications"
+)
+@role_required("recruiter")
+def internship_applications(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Verify that this internship belongs to the logged-in recruiter.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    # Fetch all applications, newest first.
+    all_applications = Application.query.filter_by(
+        internship_id=internship.internship_id
+    ).order_by(
+        Application.application_date.desc()
+    ).all()
+
+    total_applications = len(all_applications)
+
+    # Calculate skill matches dynamically.
+    skill_matches = {
+        application.application_id: calculate_skill_match(
+            application.student,
+            internship
+        )
+        for application in all_applications
+    }
+
+    applications = all_applications.copy()
+
+    # Filter by application status.
+    allowed_statuses = {
+        "Applied",
+        "Under Review",
+        "Shortlisted",
+        "Selected",
+        "Rejected"
+    }
+
+    status_filter = request.args.get("status", "").strip()
+
+    if status_filter:
+        if status_filter in allowed_statuses:
+            applications = [
+                application
+                for application in applications
+                if application.status == status_filter
+            ]
+        else:
+            flash("Invalid application status filter.", "error")
+
+    # Parse inclusive application-date filters.
+    date_from_input = request.args.get("date_from", "").strip()
+    date_to_input = request.args.get("date_to", "").strip()
+
+    date_from = None
+    date_to = None
+    invalid_date_filter = False
+
+    if date_from_input:
+        try:
+            date_from = datetime.strptime(
+                date_from_input, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            invalid_date_filter = True
+
+    if date_to_input:
+        try:
+            date_to = datetime.strptime(
+                date_to_input, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            invalid_date_filter = True
+
+    if date_from and date_to and date_from > date_to:
+        invalid_date_filter = True
+
+    if invalid_date_filter:
+        flash("Invalid application date filter.", "error")
+    else:
+        if date_from:
+            applications = [
+                application
+                for application in applications
+                if application.application_date.date() >= date_from
+            ]
+
+        if date_to:
+            applications = [
+                application
+                for application in applications
+                if application.application_date.date() <= date_to
+            ]
+
+    # Supported sorting options.
+    allowed_sorts = {
+        "match_score_desc",
+        "match_score_asc",
+        "application_date_desc",
+        "application_date_asc"
+    }
+
+    sort_by = request.args.get(
+        "sort_by", "match_score_desc"
+    ).strip()
+
+    if sort_by not in allowed_sorts:
+        sort_by = "match_score_desc"
+
+    def match_score(application):
+        return skill_matches[
+            application.application_id
+        ]["score"]
+
+    # Stable sorting preserves application-date order for
+    # applicants with equal match scores.
+    if sort_by == "match_score_asc":
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                match_score(application)
+                if match_score(application) is not None
+                else 0
+            )
+        )
+
+    elif sort_by == "application_date_desc":
+        # Use match score as the secondary ordering.
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
+        applications.sort(
+            key=lambda application: application.application_date,
+            reverse=True
+        )
+
+    elif sort_by == "application_date_asc":
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
+        applications.sort(
+            key=lambda application: application.application_date
+        )
+
+    else:
+        # Default: highest match score first.
+        applications.sort(
+            key=lambda application: (
+                match_score(application) is None,
+                -(match_score(application) or 0)
+            )
+        )
+
+    return render_template(
+        "recruiter/applications.html",
+        internship=internship,
+        applications=applications,
+        skill_matches=skill_matches,
+        total_applications=total_applications
+    )
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications/"
+    "<int:application_id>/status",
+    methods=["POST"]
+)
+@role_required("recruiter")
+def update_application_status(internship_id, application_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    application = Application.query.filter_by(
+        application_id=application_id,
+        internship_id=internship.internship_id
+    ).first_or_404()
+
+    new_status = request.form.get("status", "").strip()
+
+    allowed_statuses = {
+        "Under Review",
+        "Shortlisted",
+        "Selected",
+        "Rejected"
+    }
+
+    if new_status not in allowed_statuses:
+        flash("Invalid application status.", "error")
+    else:
+        application.status = new_status
+        db.session.commit()
+        flash("Application status updated successfully.", "success")
+
+    return redirect(url_for(
+        "recruiter.internship_applications",
+        internship_id=internship_id
+    ))
+
+
+
+@recruiter.route(
+    "/internships/<int:internship_id>/applications/"
+    "<int:application_id>/resume"
+)
+@role_required("recruiter")
+def view_applicant_resume(internship_id, application_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Verify recruiter ownership.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    # Verify application ownership.
+    application = Application.query.filter_by(
+        application_id=application_id,
+        internship_id=internship.internship_id
+    ).first_or_404()
+
+    # Prefer the immutable application snapshot.
+    # Fall back to the original Resume relationship for older applications.
+    resume_document = (
+        application.resume_snapshot
+        or application.resume
+    )
+
+    if not resume_document:
+        abort(404)
+
+    try:
+        file_content = read_resume_file(
+            resume_document.file_path
+        )
+    except FileNotFoundError:
+        abort(404)
+
+    content_type, _ = mimetypes.guess_type(
+        resume_document.file_name
+    )
+
+    return send_file(
+        BytesIO(file_content),
+        mimetype=content_type or "application/octet-stream",
+        as_attachment=False,
+        download_name=resume_document.file_name
     )

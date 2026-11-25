@@ -1,0 +1,98 @@
+<header class="navbar">
+    <a class="logo" href="{{ url_for('home') }}">
+    <img
+        src="{{ url_for('static', filename='images/internmatch-logo.webp') }}"
+        alt="InternMatch"
+        class="navbar-logo"
+    >
+</a>
+
+
+    <nav class="nav-links app-nav-links" id="app-navigation">
+
+        {% if current_user.is_authenticated %}
+
+            {% if current_user.role == "student" %}
+
+                <a href="{{ url_for('student.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('student.browse_internships') }}">Browse Internships</a>
+                <a href="{{ url_for('student.application_history') }}">My Applications</a>
+                <a href="{{ url_for('student.profile') }}">Profile</a>
+                <a href="{{ url_for('student.skills') }}">Skills</a>
+                <a href="{{ url_for('student.skill_gap_analysis') }}">Skill Gaps</a>
+                <a href="{{ url_for('student.upload_resume') }}">Resume</a>
+
+            {% elif current_user.role == "recruiter" %}
+
+                <a href="{{ url_for('recruiter.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('recruiter.internships') }}">My Internships</a>
+                <a href="{{ url_for('recruiter.create_internship') }}">Create Internship</a>
+                <a href="{{ url_for('recruiter.profile') }}">Company Profile</a>
+
+            {% elif current_user.role == "admin" %}
+
+                <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin.user_management') }}">Manage Users</a>
+                <a href="{{ url_for('admin.internship_management') }}">Manage Internships</a>
+                <a href="{{ url_for('admin.application_monitor') }}">Monitor Applications</a>
+
+            {% endif %}
+
+        {% else %}
+
+            <a href="{{ url_for('home') }}">Home</a>
+            <a href="{{ url_for('home') }}#students">For Students</a>
+            <a href="{{ url_for('home') }}#recruiters">For Recruiters</a>
+
+        {% endif %}
+
+    </nav>
+
+    {% if current_user.is_authenticated %}
+
+        <form
+            method="POST"
+            action="{{ url_for('auth.logout') }}"
+            class="nav-buttons app-nav-logout"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button type="submit" class="login-btn">
+                Log Out
+            </button>
+        </form>
+
+    {% else %}
+
+        <div class="nav-buttons">
+            <a class="login-btn"
+                aria-label="Login"
+                href="{{ url_for('auth.login') }}">
+                    Log In
+            </a>
+
+            <a class="register-btn" href="{{ url_for('auth.register') }}">
+                Register
+            </a>
+        </div>
+
+    {% endif %}
+
+</header>
+
+<script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+            navigator.serviceWorker.register("/service-worker.js")
+                .catch(function (error) {
+                    console.error(
+                        "Service worker registration failed:", error
+                    );
+                });
+        });
+    }
+</script>

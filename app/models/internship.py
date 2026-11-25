@@ -43,7 +43,7 @@ class Internship(db.Model):
     )
 
     deadline = db.Column(db.Date)
-    status = db.Column(db.String(30), nullable=False, default="Open")
+    status = db.Column(db.String(30), nullable=False, default="Draft")
 
     created_at = db.Column(
         db.DateTime,

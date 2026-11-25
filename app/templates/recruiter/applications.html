@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applicants - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('recruiter.internships') }}">
+            ← Back to My Internships
+        </a>
+
+        <div class="page-heading">
+            <span class="eyebrow">RECRUITER WORKSPACE</span>
+            <h1>Applicants</h1>
+            <p>
+                Review candidates, compare their skills with your
+                requirements and manage their applications.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="company-summary">
+
+            <div>
+                <span class="summary-label">INTERNSHIP LISTING</span>
+                <h2>{{ internship.title }}</h2>
+                <p>{{ internship.company_name }}</p>
+            </div>
+
+            <div>
+                <span class="stat-label">TOTAL APPLICANTS</span>
+                <strong class="stat-value">
+                    {{ total_applications }}
+                </strong>
+            </div>
+
+        </section>
+
+        <div class="section-title">
+            <div>
+                <h2>Candidate Applications</h2>
+                <p>
+                    Review each applicant's qualifications and compatibility.
+                </p>
+            </div>
+        </div>
+
+                <section class="filter-card applicant-filter-card">
+
+            <form
+                method="GET"
+                action="{{ url_for(
+                    'recruiter.internship_applications',
+                    internship_id=internship.internship_id
+                ) }}"
+                class="applicant-filter-form"
+            >
+
+                <h3>Applicant Filters</h3>
+
+                <div class="applicant-filter-grid">
+
+                    <div class="form-group">
+                        <label for="applicant-status">Application Status</label>
+                        <select id="applicant-status" name="status">
+                            <option value="">All statuses</option>
+                            {% for status in [
+                                "Applied",
+                                "Under Review",
+                                "Shortlisted",
+                                "Selected",
+                                "Rejected"
+                            ] %}
+                                <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date-from">From Date</label>
+                        <input
+                            type="date"
+                            id="date-from"
+                            name="date_from"
+                            value="{{ request.args.get('date_from', '') }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date-to">To Date</label>
+                        <input
+                            type="date"
+                            id="date-to"
+                            name="date_to"
+                            value="{{ request.args.get('date_to', '') }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="applicant-sort">Sort Applicants</label>
+                        <select id="applicant-sort" name="sort_by">
+
+                            <option value="match_score_desc"
+                                {% if request.args.get('sort_by', 'match_score_desc') == 'match_score_desc' %}selected{% endif %}>
+                                Match Score: Highest First
+                            </option>
+
+                            <option value="match_score_asc"
+                                {% if request.args.get('sort_by') == 'match_score_asc' %}selected{% endif %}>
+                                Match Score: Lowest First
+                            </option>
+
+                            <option value="application_date_desc"
+                                {% if request.args.get('sort_by') == 'application_date_desc' %}selected{% endif %}>
+                                Application Date: Newest First
+                            </option>
+
+                            <option value="application_date_asc" {% if request.args.get('sort_by') == 'application_date_asc' %}selected{% endif %}>
+                                Application Date: Oldest First
+                            </option>
+
+                        </select>
+                    </div>
+
+                </div>
+
+                <div class="applicant-filter-actions">
+
+                    <button type="submit" class="primary-button">
+                        Apply Filters
+                    </button>
+
+                    <a
+                        class="secondary-button"
+                        href="{{ url_for(
+                            'recruiter.internship_applications',
+                            internship_id=internship.internship_id
+                        ) }}"
+                    >
+                        Clear Filters
+                    </a>
+
+                </div>
+
+            </form>
+
+        </section>
+
+        <p class="applicant-result-count">
+            Showing {{ applications|length }} of
+            {{ total_applications }} applicants
+        </p>
+
+        {% if applications %}
+
+            <div class="recruiter-listing-grid">
+
+                {% for application in applications %}
+
+                    {% set skill_match = skill_matches[application.application_id] %}
+
+                    <article class="recruiter-listing-card">
+
+                        <div class="listing-card-top">
+
+                            <div>
+                                <h2>{{ application.student.user.name }}</h2>
+
+                                <p class="company-name">
+                                    {{ application.student.user.email }}
+                                </p>
+                            </div>
+
+                            <span class="status-badge">
+                                {{ application.status }}
+                            </span>
+
+                        </div>
+
+                        <div class="detail-section">
+
+                            <h3>Applicant Information</h3>
+
+                            <div class="listing-meta">
+
+                                <div>
+                                    <span>Phone</span>
+                                    <strong>
+                                        {{ application.student.phone or "Not provided" }}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Education</span>
+                                    <strong>
+                                        {{ application.student.education or "Not provided" }}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Application Date</span>
+                                    <strong>
+                                        {{ application.application_date.strftime("%d %b %Y") }}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Application Status</span>
+                                    <strong>{{ application.status }}</strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="detail-section">
+
+                            <h3>Skills</h3>
+
+                            {% if application.student.skills %}
+
+                                <div class="skill-list">
+
+                                    {% for skill in application.student.skills %}
+                                        <span class="skill-tag">
+                                            {{ skill.skill_name }}
+                                        </span>
+                                    {% endfor %}
+
+                                </div>
+
+                            {% else %}
+
+                                <p>No skills added by this student.</p>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="detail-section">
+
+                            <h3>Skill Match</h3>
+
+                            {% if skill_match.score is not none %}
+
+                                <div class="match-score">
+                                    {{ skill_match.score }}%
+                                </div>
+
+                                <progress
+                                    class="match-progress"
+                                    value="{{ skill_match.score }}"
+                                    max="100"
+                                    aria-label="Candidate skill match: {{ skill_match.score }} percent"
+                                >
+                                    {{ skill_match.score }}%
+                                </progress>
+
+                                <p class="match-note">
+                                    {{ skill_match.explanation }}
+                                </p>
+
+                                <h4>Matched Skills</h4>
+
+                                {% if skill_match.matched_skills %}
+
+                                    <div class="skill-list">
+
+                                        {% for skill in skill_match.matched_skills %}
+                                            <span class="skill-tag matched">
+                                                ✓ {{ skill }}
+                                            </span>
+                                        {% endfor %}
+
+                                    </div>
+
+                                {% else %}
+
+                                    <p>No matching skills yet.</p>
+
+                                {% endif %}
+
+                                <h4>Missing Skills</h4>
+
+                                {% if skill_match.missing_skills %}
+
+                                    <div class="skill-list">
+
+                                        {% for skill in skill_match.missing_skills %}
+                                            <span class="skill-tag missing">
+                                                {{ skill }}
+                                            </span>
+                                        {% endfor %}
+
+                                    </div>
+
+                                {% else %}
+
+                                    <p>
+                                        Applicant has all the required skills!
+                                    </p>
+
+                                {% endif %}
+
+                            {% else %}
+
+                                <p>No skill requirements specified</p>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="detail-section">
+
+                            <h3>Resume</h3>
+
+                            {% if application.resume %}
+
+                                <p>
+                                    <strong>
+                                        {{ application.resume.file_name }}
+                                    </strong>
+                                </p>
+
+                                <a
+                                    class="secondary-button"
+                                    href="{{ url_for(
+                                        'recruiter.view_applicant_resume',
+                                        internship_id=internship.internship_id,
+                                        application_id=application.application_id
+                                    ) }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    View Resume
+                                </a>
+
+                            {% else %}
+
+                                <p>No resume attached.</p>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="detail-section">
+
+                            <h3>Manage Application</h3>
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'recruiter.update_application_status',
+                                    internship_id=internship.internship_id,
+                                    application_id=application.application_id
+                                ) }}"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{ csrf_token() }}"
+                                >
+
+                                <div class="form-group">
+
+                                    <label for="status-{{ application.application_id }}">
+                                        Update Application Status
+                                    </label>
+
+                                    <select
+                                        id="status-{{ application.application_id }}"
+                                        name="status"
+                                        required
+                                    >
+
+                                        {% if application.status not in [
+                                            "Under Review",
+                                            "Shortlisted",
+                                            "Selected",
+                                            "Rejected"
+                                        ] %}
+                                            <option value="" selected disabled>
+                                                Choose a new status
+                                            </option>
+                                        {% endif %}
+
+                                        <option value="Under Review"
+                                            {% if application.status == "Under Review" %}selected{% endif %}>
+                                            Under Review
+                                        </option>
+
+                                        <option value="Shortlisted"
+                                            {% if application.status == "Shortlisted" %}selected{% endif %}>
+                                            Shortlisted
+                                        </option>
+
+                                        <option value="Selected"
+                                            {% if application.status == "Selected" %}selected{% endif %}>
+                                            Selected
+                                        </option>
+
+                                        <option value="Rejected"
+                                            {% if application.status == "Rejected" %}selected{% endif %}>
+                                            Rejected
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+                                <div class="form-actions">
+
+                                    <button
+                                        type="submit"
+                                        class="primary-button"
+                                    >
+                                        Change Status
+                                    </button>
+
+                                </div>
+
+                            </form>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+                        <div class="empty-state">
+
+                <div class="empty-icon">▤</div>
+
+                {% if total_applications > 0 %}
+
+                    <h2>No Matching Applicants</h2>
+
+                    <p>
+                        No applicants match your selected filters.
+                        Try changing your filters or clearing them.
+                    </p>
+
+                    <a
+                        class="secondary-button"
+                        href="{{ url_for(
+                            'recruiter.internship_applications',
+                            internship_id=internship.internship_id
+                        ) }}"
+                    >
+                        Clear Filters
+                    </a>
+
+                {% else %}
+
+                    <h2>No Applications Yet</h2>
+
+                    <p>
+                        No applications have been submitted yet.
+                        Check back when students start applying.
+                    </p>
+
+                    <a class="primary-button"
+                       href="{{ url_for('recruiter.internships') }}">
+                        Back to My Internships
+                    </a>
+
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+        <div class="page-actions">
+
+            <a class="secondary-button"
+               href="{{ url_for('recruiter.internships') }}">
+                Back to My Internships
+            </a>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

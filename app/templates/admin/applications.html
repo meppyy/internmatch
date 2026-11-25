@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Application Monitoring - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container admin-application-page">
+
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            &larr; Back to Admin Dashboard
+        </a>
+
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>Application Monitoring</h1>
+                <p>
+                    Monitor applications submitted across all students,
+                    recruiters, and internship listings.
+                </p>
+            </div>
+        </div>
+
+        <section class="application-monitor-summary">
+
+            <div>
+                <span class="application-summary-label">
+                    Total Platform Applications
+                </span>
+
+                <strong class="application-summary-number">
+                    {{ total_applications }}
+                </strong>
+            </div>
+
+            <p>
+                Complete overview of application activity
+                across InternMatch.
+            </p>
+
+        </section>
+
+        <section class="application-monitor-section">
+
+            <div class="application-table-heading">
+                <div>
+                    <h2>All Applications</h2>
+                    <p>
+                        Applications are arranged from newest
+                        to oldest.
+                    </p>
+                </div>
+
+                <span class="application-record-count">
+                    {{ total_applications }} records
+                </span>
+            </div>
+
+            {% if applications %}
+
+                <div class="application-table-card">
+
+                    <div class="application-table-scroll"
+                         role="region"
+                         aria-label="Platform applications"
+                         tabindex="0">
+
+                        <table class="application-monitor-table">
+
+                            <thead>
+                                <tr>
+                                    <th scope="col">Candidate</th>
+                                    <th scope="col">Internship</th>
+                                    <th scope="col">Recruiter</th>
+                                    <th scope="col">Applied On</th>
+                                    <th scope="col">Status</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                {% for application in applications %}
+
+                                    <tr>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ application.student.user.name }}
+                                            </div>
+
+                                            <div class="application-cell-secondary">
+                                                {{ application.student.user.email }}
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ application.internship.title }}
+                                            </div>
+
+                                            <div class="application-cell-secondary">
+                                                {{ application.internship.company_name }}
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ application.internship.recruiter.user.name }}
+                                            </div>
+
+                                            <div class="application-cell-secondary">
+                                                {{ application.internship.recruiter.user.email }}
+                                            </div>
+                                        </td>
+
+                                        <td class="application-date">
+                                            {{ application.application_date.strftime(
+                                                "%d %b %Y, %I:%M %p"
+                                            ) }}
+                                        </td>
+
+                                        <td>
+                                            <span class="application-status application-status-{{ application.status|lower|replace(' ', '-') }}">
+                                                {{ application.status }}
+                                            </span>
+                                        </td>
+
+                                    </tr>
+
+                                {% endfor %}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state application-monitor-empty">
+
+                    <div class="empty-icon">&#128203;</div>
+
+                    <h2>No Applications Yet</h2>
+
+                    <p>
+                        Applications submitted by students
+                        will appear here.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+    </main>
+
+</body>
+</html>

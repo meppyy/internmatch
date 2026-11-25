@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Internship Management - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            ← Back to Admin Dashboard
+        </a>
+
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>Internship Management</h1>
+                <p>
+                    Review and manage internship listings
+                    across the entire InternMatch platform.
+                </p>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Platform Internship Listings</h2>
+                    <p>
+                        Total Listings: {{ internships|length }}
+                    </p>
+                </div>
+            </div>
+
+            {% if internships %}
+
+                <div class="recruiter-listing-grid">
+
+                    {% for internship in internships %}
+
+                        <article class="recruiter-listing-card">
+
+                            <div class="listing-card-top">
+
+                                <div>
+                                    <h2>{{ internship.title }}</h2>
+
+                                    <p class="company-name">
+                                        {{ internship.company_name }}
+                                    </p>
+                                </div>
+
+                                <span class="status-badge">
+                                    {{ internship.status }}
+                                </span>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Listing Information</h3>
+
+                                <div class="listing-meta">
+
+                                    <div>
+                                        <span>Recruiter</span>
+                                        <strong>
+                                            {{ internship.recruiter.user.name }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Recruiter Email</span>
+                                        <strong>
+                                            {{ internship.recruiter.user.email }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Location</span>
+                                        <strong>
+                                            {{ internship.location or "Not specified" }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Work Mode</span>
+                                        <strong>
+                                            {{ internship.work_mode or "Not specified" }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Application Deadline</span>
+                                        <strong>
+                                            {{ internship.deadline.strftime("%d %b %Y") if internship.deadline else "Not specified" }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Applications</span>
+                                        <strong>
+                                            {{ internship.applications|length }}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Manage Listing</h3>
+
+                                <form
+                                    method="POST"
+                                    action="{{ url_for(
+                                        'admin.update_internship_status',
+                                        internship_id=internship.internship_id
+                                    ) }}"
+                                >
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="{{ csrf_token() }}"
+                                    >
+
+                                    <div class="form-group">
+
+                                        <label for="status-{{ internship.internship_id }}">
+                                            Internship Status
+                                        </label>
+
+                                        <select
+                                            id="status-{{ internship.internship_id }}"
+                                            name="status"
+                                            required
+                                        >
+
+                                            {% for status in ["Draft", "Active", "Closed"] %}
+                                                <option value="{{ status }}"
+                                                    {% if internship.status == status %}selected{% endif %}>
+                                                    {{ status }}
+                                                </option>
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </div>
+
+                                    <div class="form-actions">
+
+                                        <button
+                                            type="submit"
+                                            class="primary-button"
+                                        >
+                                            Update Status
+                                        </button>
+
+                                    </div>
+
+                                </form>
+
+                                {% if not internship.applications %}
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for(
+                                            'admin.delete_internship',
+                                            internship_id=internship.internship_id
+                                        ) }}"
+                                        class="inline-form"
+                                        onsubmit="return confirm('Permanently delete this internship listing?');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="danger-button"
+                                        >
+                                            Delete Internship
+                                        </button>
+
+                                    </form>
+
+                                {% else %}
+
+                                    <p>
+                                        This listing has application history
+                                        and cannot be deleted.
+                                    </p>
+
+                                {% endif %}
+
+                            </div>
+
+                        </article>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <div class="empty-icon">▤</div>
+
+                    <h2>No Internship Listings</h2>
+
+                    <p>
+                        No recruiters have created internship listings yet.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <div class="page-actions">
+
+            <a class="secondary-button"
+               href="{{ url_for('admin.dashboard') }}">
+                Back to Admin Dashboard
+            </a>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

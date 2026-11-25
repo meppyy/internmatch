@@ -2,31 +2,177 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ internship.title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ internship.title }} - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>{{ internship.title }}</h1>
 
-    <p>Company: {{ internship.company_name }}</p>
-    <p>Description: {{ internship.description }}</p>
-    <p>Location: {{ internship.location }}</p>
-    <p>Work Mode: {{ internship.work_mode }}</p>
-    <p>Duration: {{ internship.duration }}</p>
-    <p>Stipend: {{ internship.stipend }}</p>
-    <p>Eligibility: {{ internship.eligibility }}</p>
-    <p>Deadline: {{ internship.deadline }}</p>
-    <p>Status: {{ internship.status }}</p>
+    {% include "_navigation.html" %}
 
-    <h2>Required Skills</h2>
+    <main class="page-container">
 
-    {% if internship.skills %}
-        <ul>
-            {% for skill in internship.skills %}
-                <li>{{ skill.skill_name }}</li>
+        <a class="back-link"
+           href="{{ url_for('recruiter.internships') }}">
+            ← Back to My Internships
+        </a>
+
+        <div class="page-heading listing-detail-heading">
+
+            <div>
+                <span class="eyebrow">INTERNSHIP LISTING</span>
+                <h1>{{ internship.title }}</h1>
+                <p class="company-name">
+                    {{ internship.company_name }}
+                </p>
+            </div>
+
+            <span class="status-badge status-{{ internship.status|lower }}">
+                {{ internship.status }}
+            </span>
+
+        </div>
+
+                </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
             {% endfor %}
-        </ul>
-    {% else %}
-        <p>No required skills listed.</p>
-    {% endif %}
+        {% endwith %}
+
+        <section class="detail-card">
+
+        <section class="detail-card">
+
+            <div class="detail-section">
+
+                <h2>Overview</h2>
+
+                <div class="listing-meta">
+
+                    <div>
+                        <span>Location</span>
+                        <strong>
+                            {{ internship.location or "Not specified" }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Work Mode</span>
+                        <strong>
+                            {{ internship.work_mode or "Not specified" }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Duration</span>
+                        <strong>
+                            {{ internship.duration or "Not specified" }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Stipend</span>
+                        <strong>
+                            {{ internship.stipend or "Not specified" }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Deadline</span>
+                        <strong>
+                            {{ internship.deadline.strftime("%d %b %Y") if internship.deadline else "Not specified" }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Posted</span>
+                        <strong>
+                            {{ internship.created_at.strftime("%d %b %Y") if internship.created_at else "Not specified" }}
+                        </strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Description</h2>
+
+                <p>
+                    {{ internship.description or "No description provided." }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Eligibility</h2>
+
+                <p>
+                    {{ internship.eligibility or "No eligibility information provided." }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Required Skills</h2>
+
+                <div class="skill-list">
+
+                    {% if internship.skills %}
+
+                        {% for skill in internship.skills %}
+                            <span class="skill-tag">
+                                {{ skill.skill_name }}
+                            </span>
+                        {% endfor %}
+
+                    {% elif internship.required_skills %}
+
+                        {% for skill in internship.required_skills.split(',') %}
+                            <span class="skill-tag">
+                                {{ skill.strip() }}
+                            </span>
+                        {% endfor %}
+
+                    {% else %}
+
+                        <p>No required skills specified.</p>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <div class="page-actions">
+
+            <a class="secondary-button"
+               href="{{ url_for('recruiter.internships') }}">
+                Manage My Internships
+            </a>
+
+            <a class="primary-button"
+               href="{{ url_for(
+                   'recruiter.internship_applications',
+                   internship_id=internship.internship_id
+               ) }}">
+                View Applicants
+            </a>
+
+        </div>
+
+    </main>
+
 </body>
 </html>

@@ -17,6 +17,7 @@ from app.auth.decorators import role_required
 def app():
     app = create_app({
         "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
     })
 
@@ -168,7 +169,25 @@ def test_login_success(client, app):
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
+    assert response.headers["Location"].endswith("/student/dashboard")
+
+def test_recruiter_login_redirects_to_dashboard(client, app):
+    with app.app_context():
+        create_user(
+            db.session,
+            email="recruiter-login@example.com",
+            password="TestPassword123",
+            role="recruiter",
+        )
+
+    response = login(
+        client,
+        "recruiter-login@example.com",
+        "TestPassword123",
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/recruiter/dashboard")
 
 
 def test_login_wrong_password(client, app):
@@ -202,27 +221,43 @@ def test_login_unknown_email(client):
 
 
 def test_logout(client, app):
+    # Create and log in a student before testing logout.
     with app.app_context():
-        create_user(
-            db.session,
-            email="logout@example.com",
-            password="TestPassword123",
-            role="student",
-        )
+        create_user(db.session)
 
-    login(
+    login_response = login(
         client,
-        "logout@example.com",
+        "test@example.com",
         "TestPassword123",
     )
 
-    response = client.get(
+    assert login_response.status_code == 302
+
+    # GET requests must not log users out.
+    get_response = client.get(
+        "/auth/logout",
+        follow_redirects=False,
+    )
+
+    assert get_response.status_code == 405
+
+    # A POST request performs the logout.
+    response = client.post(
         "/auth/logout",
         follow_redirects=False,
     )
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/")
+
+    # The user should no longer access protected student pages.
+    dashboard_response = client.get(
+        "/student/dashboard",
+        follow_redirects=False,
+    )
+
+    assert dashboard_response.status_code == 302
+    assert "/auth/login" in dashboard_response.headers["Location"]
 
 def test_protected_route_requires_login(client):
     response = client.get("/test-student", follow_redirects=False)

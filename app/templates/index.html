@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>InternMatch | Find Your Perfect Internship</title>
+
+    <meta name="description"
+          content="Discover internships, understand your skill compatibility, and connect students with recruiters through InternMatch.">
+
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#172554">
+
+    <link rel="apple-touch-icon"
+          href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main>
+
+        <!-- HERO SECTION -->
+        <section class="hero">
+
+            <div class="hero-grid">
+
+                <div class="hero-content">
+
+                    <span class="eyebrow">
+                        YOUR CAREER STARTS HERE
+                    </span>
+
+                    <h1>
+                        Find the Internship
+                        <span>That Matches Your Potential.</span>
+                    </h1>
+
+                    <p>
+                        Your next chapter starts with InternMatch.
+                        Discover opportunities that align with your skills,
+                        identify areas for improvement, and take the next step
+                        towards your dream career.
+                    </p>
+
+                    <div class="hero-actions">
+
+                        {% if current_user.is_authenticated %}
+
+                            {% if current_user.role == "student" %}
+
+                                <a href="{{ url_for('student.dashboard') }}"
+                                   class="primary-button">
+                                    Go to Student Dashboard →
+                                </a>
+
+                                <a href="{{ url_for('student.browse_internships') }}"
+                                   class="secondary-button">
+                                    Find Internships
+                                </a>
+
+                            {% elif current_user.role == "recruiter" %}
+
+                                <a href="{{ url_for('recruiter.dashboard') }}"
+                                   class="primary-button">
+                                    Go to Recruiter Dashboard →
+                                </a>
+
+                                <a href="{{ url_for('recruiter.create_internship') }}"
+                                   class="secondary-button">
+                                    Post an Internship
+                                </a>
+
+                            {% elif current_user.role == "admin" %}
+
+                                <a href="{{ url_for('admin.dashboard') }}"
+                                   class="primary-button">
+                                    Go to Admin Dashboard →
+                                </a>
+
+                            {% endif %}
+
+                        {% else %}
+
+                            <a href="{{ url_for('auth.register') }}"
+                               class="primary-button">
+                                Create Your Account →
+                            </a>
+
+                            <a href="{{ url_for('auth.login') }}"
+                               class="secondary-button">
+                                Explore Your Account
+                            </a>
+
+                        {% endif %}
+
+                    </div>
+
+                    <div class="hero-trust-points">
+                        <span>✓ Discover opportunities</span>
+                        <span>✓ Understand your skill gaps</span>
+                        <span>✓ Build your future</span>
+                    </div>
+
+                </div>
+
+                <div class="hero-visual">
+
+                    <article class="visual-card main-card">
+
+                        <div>
+                            <span class="eyebrow">
+                                YOUR NEXT OPPORTUNITY
+                            </span>
+
+                            <h3>Career Match</h3>
+
+                            <p>
+                                Understand how your skills align
+                                with internship requirements.
+                            </p>
+                        </div>
+
+                        <div class="match-score">
+                            85%
+                            <small>Example Match Score</small>
+                        </div>
+
+                        <div class="match-details">
+
+                            <p>✓ Skills matched</p>
+                            <p>↗ Skills to improve</p>
+
+                        </div>
+
+                        <div class="progress-section">
+
+                            <div class="progress-label">
+                                <span>Profile readiness</span>
+                                <strong>75%</strong>
+                            </div>
+
+                            <progress value="75" max="100">
+                                75%
+                            </progress>
+
+                        </div>
+
+                    </article>
+
+                    <div class="floating-cards-grid">
+
+                        <article class="floating-card">
+                            <span>✦</span>
+                            <strong>Skill Analysis</strong>
+                            <small>Personalised insights</small>
+                        </article>
+
+                        <article class="floating-card">
+                            <span>✓</span>
+                            <strong>Opportunities</strong>
+                            <small>Explore your matches</small>
+                        </article>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ABOUT SECTION -->
+        <section class="about-section section" id="about">
+
+            <div class="section-heading">
+
+                <span class="eyebrow">ABOUT INTERNMATCH</span>
+
+                <h2>
+                    More Than Just Finding an Internship.
+                </h2>
+
+                <p>
+                    InternMatch bridges the gap between students and
+                    internship opportunities by helping candidates
+                    understand their strengths and improve their
+                    employability.
+                </p>
+
+            </div>
+
+            <div class="about-grid">
+
+                <article class="about-card">
+                    <div class="about-icon">🎯</div>
+
+                    <h3>Smarter Matching</h3>
+
+                    <p>
+                        Discover opportunities based on your skills,
+                        qualifications and interests.
+                    </p>
+                </article>
+
+                <article class="about-card">
+                    <div class="about-icon">📊</div>
+
+                    <h3>Skill Gap Analysis</h3>
+
+                    <p>
+                        Identify the skills you already have and
+                        understand what you need to improve.
+                    </p>
+                </article>
+
+                <article class="about-card">
+                    <div class="about-icon">🚀</div>
+
+                    <h3>Career Development</h3>
+
+                    <p>
+                        Build a stronger profile and move closer
+                        to your professional goals.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- FEATURES SECTION -->
+        <section class="feature-section section" id="features">
+
+            <div class="section-heading">
+
+                <span class="eyebrow">WHAT WE OFFER</span>
+
+                <h2>Everything You Need to Get Ahead.</h2>
+
+                <p>
+                    A platform designed to make internship discovery
+                    and recruitment more meaningful.
+                </p>
+
+            </div>
+
+            <div class="features-grid">
+
+                <article class="feature-card">
+                    <span class="feature-number">01</span>
+                    <h3>Internship Discovery</h3>
+                    <p>
+                        Explore internship opportunities that
+                        suit your professional interests.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <span class="feature-number">02</span>
+                    <h3>Resume Upload</h3>
+                    <p>
+                        Build your professional profile and
+                        showcase your qualifications.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <span class="feature-number">03</span>
+                    <h3>Skill-Based Matching</h3>
+                    <p>
+                        Understand how your skills align with
+                        internship requirements.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <span class="feature-number">04</span>
+                    <h3>Application Tracking</h3>
+                    <p>
+                        Keep track of your internship applications
+                        and their progress.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- HOW IT WORKS -->
+        <section class="how-section section" id="how-it-works">
+
+            <div class="section-heading">
+
+                <span class="eyebrow">SIMPLE PROCESS</span>
+
+                <h2>Your Journey Starts With Three Steps.</h2>
+
+            </div>
+
+            <div class="steps-grid">
+
+                <article class="step-card">
+                    <div class="step-number">01</div>
+
+                    <h3>Create Your Profile</h3>
+
+                    <p>
+                        Register, upload your resume and
+                        showcase your skills.
+                    </p>
+                </article>
+
+                <article class="step-card">
+                    <div class="step-number">02</div>
+
+                    <h3>Discover Your Matches</h3>
+
+                    <p>
+                        Explore relevant opportunities and
+                        understand your skill compatibility.
+                    </p>
+                </article>
+
+                <article class="step-card">
+                    <div class="step-number">03</div>
+
+                    <h3>Apply and Grow</h3>
+
+                    <p>
+                        Apply for opportunities and keep
+                        developing your professional skills.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- STUDENT AND RECRUITER SECTION -->
+        <section class="audience-section section">
+
+            <div class="audience-grid">
+
+                <article class="audience-card student-card">
+
+                    <span class="eyebrow">FOR STUDENTS</span>
+
+                    <h2>Your Future Deserves the Right Opportunity.</h2>
+
+                    <p>
+                        Discover internships, showcase your abilities
+                        and identify the skills that can help you stand out.
+                    </p>
+
+                    <a href="{{ url_for('auth.register') }}"
+                       class="primary-button">
+                        Join as a Student →
+                    </a>
+
+                </article>
+
+                <article class="audience-card recruiter-card">
+
+                    <span class="eyebrow">FOR RECRUITERS</span>
+
+                    <h2>Discover Talent That Matches Your Needs.</h2>
+
+                    <p>
+                        Connect with aspiring professionals and discover
+                        candidates whose skills align with your opportunities.
+                    </p>
+
+                    <a href="{{ url_for('auth.register') }}"
+                       class="primary-button">
+                        Join as a Recruiter →
+                    </a>
+
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- CALL TO ACTION -->
+        <section class="cta-section">
+
+            <span class="eyebrow">YOUR NEXT STEP</span>
+
+            <h2>Ready to Take the Next Step?</h2>
+
+            <p>
+                Your next opportunity could be closer than you think.
+                Start your journey with InternMatch today.
+            </p>
+
+            {% if not current_user.is_authenticated %}
+
+                <a href="{{ url_for('auth.register') }}"
+                   class="primary-button">
+                    Get Started Today →
+                </a>
+
+            {% elif current_user.role == "student" %}
+
+                <a href="{{ url_for('student.browse_internships') }}"
+                   class="primary-button">
+                    Explore Internships →
+                </a>
+
+            {% elif current_user.role == "recruiter" %}
+
+                <a href="{{ url_for('recruiter.create_internship') }}"
+                   class="primary-button">
+                    Post an Internship →
+                </a>
+
+            {% endif %}
+
+        </section>
+
+    </main>
+
+
+    <!-- FOOTER -->
+    <footer class="footer">
+
+        <div class="footer-content">
+
+            <a href="{{ url_for('home') }}" class="logo">
+                Intern<span>Match.</span>
+            </a>
+
+            <p>
+                Connecting potential with opportunity.
+            </p>
+
+        </div>
+
+        <div class="footer-bottom">
+            © {{ current_year }} InternMatch. All rights reserved.
+        </div>
+
+    </footer>
+
+</body>
+</html>

@@ -2,32 +2,137 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile Completion - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <h1>Profile Completion</h1>
+    {% include "_navigation.html" %}
 
-    <h2>{{ percentage }}% Complete</h2>
+    <main class="page-container">
 
-    <p>
-        <a href="{{ url_for('student.profile') }}">Back to Profile</a>
-    </p>
+        <a class="back-link"
+           href="{{ url_for('student.profile') }}">
+            ← Back to Profile
+        </a>
 
-    <h3>Profile Sections</h3>
+        <div class="page-heading">
+            <span class="eyebrow">STUDENT PROFILE</span>
+            <h1>Profile Completion</h1>
+            <p>
+                Track how much of your student profile is complete
+                and identify the sections that need attention.
+            </p>
+        </div>
 
-    <ul>
-        {% for section, completed in sections.items() %}
-            <li>
-                {{ section }} -
-                {% if completed %}
-                    Complete
-                {% else %}
-                    Incomplete
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
+        <section class="detail-card">
+
+            <div class="section-title">
+                <div>
+                    <h2>Your Profile Progress</h2>
+                    <p>Complete your profile to improve your opportunities.</p>
+                </div>
+            </div>
+
+            <div class="match-score">
+                {{ percentage }}% Complete
+            </div>
+
+            <progress
+                class="match-progress"
+                value="{{ percentage }}"
+                max="100"
+                aria-label="Profile completion: {{ percentage }} percent"
+            >
+                {{ percentage }}%
+            </progress>
+
+            {% if percentage == 100 %}
+                <p>
+                    Excellent! All sections of your profile are complete.
+                </p>
+            {% elif percentage >= 50 %}
+                <p>
+                    You're making good progress. Complete the remaining
+                    sections to finish your profile.
+                </p>
+            {% else %}
+                <p>
+                    Your profile needs more information. Start completing
+                    the sections below.
+                </p>
+            {% endif %}
+
+        </section>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Profile Sections</h2>
+                    <p>Review the completion status of each section.</p>
+                </div>
+            </div>
+
+            <div class="profile-information">
+
+                {% for section, completed in sections.items() %}
+
+                    <div>
+                        <span>{{ section }}</span>
+
+                        {% if completed %}
+                            <strong class="status-badge status-active">
+                                Complete
+                            </strong>
+                        {% else %}
+                            <strong class="status-badge status-closed">
+                                Incomplete
+                            </strong>
+                        {% endif %}
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+        <section class="dashboard-cta">
+
+            <div>
+                <h2>Ready to complete your profile?</h2>
+                <p>
+                    Update your information and showcase your
+                    skills and experience.
+                </p>
+            </div>
+
+            <div class="page-actions">
+
+                <a href="{{ url_for('student.edit_profile') }}"
+                   class="primary-button">
+                    Edit Profile
+                </a>
+
+                <a href="{{ url_for('student.skills') }}"
+                   class="secondary-button">
+                    Manage Skills
+                </a>
+
+                <a href="{{ url_for('student.upload_resume') }}"
+                   class="secondary-button">
+                    Upload Resume
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
 
 </body>
 </html>

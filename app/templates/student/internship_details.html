@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ internship.title }} - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('student.browse_internships') }}">
+            ← Back to Internships
+        </a>
+
+        <div class="page-heading listing-detail-heading">
+            <span class="eyebrow">INTERNSHIP OPPORTUNITY</span>
+            <h1>{{ internship.title }}</h1>
+            <p>{{ internship.company_name }}</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="detail-card">
+
+            <div class="detail-section">
+
+                <h2>Overview</h2>
+
+                <p>
+                    <strong>Location:</strong>
+                    {{ internship.location or "Not specified" }}
+                </p>
+
+                <p>
+                    <strong>Work Mode:</strong>
+                    {{ internship.work_mode or "Not specified" }}
+                </p>
+
+                <p>
+                    <strong>Duration:</strong>
+                    {{ internship.duration or "Not specified" }}
+                </p>
+
+                <p>
+                    <strong>Stipend:</strong>
+                    {{ internship.stipend or "Not specified" }}
+                </p>
+
+                <p>
+                    <strong>Deadline:</strong>
+                    {{ internship.deadline or "Not specified" }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Description</h2>
+
+                <p>
+                    {{ internship.description or "No description provided." }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Eligibility</h2>
+
+                <p>
+                    {{ internship.eligibility or "Not specified" }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Required Skills</h2>
+
+                {% if internship.skills %}
+
+                    <div class="skill-list">
+
+                        {% for skill in internship.skills %}
+                            <span class="skill-tag">
+                                {{ skill.skill_name }}
+                            </span>
+                        {% endfor %}
+
+                    </div>
+
+                {% else %}
+
+                    <p>No skills specified.</p>
+
+                {% endif %}
+
+            </div>
+
+            <div class="detail-section">
+
+                <h2>Skill Match</h2>
+
+                {% if skill_match.score is not none %}
+
+                    <div class="match-score">
+                        {{ skill_match.score }}%
+                    </div>
+
+                    <progress
+                        class="match-progress"
+                        value="{{ skill_match.score }}"
+                        max="100"
+                        aria-label="Skill match: {{ skill_match.score }} percent"
+                    >
+                        {{ skill_match.score }}%
+                    </progress>
+
+                    <p class="match-note">
+                        {{ skill_match.explanation }}
+                    </p>
+
+                    <h3>Matched Skills</h3>
+
+                    {% if skill_match.matched_skills %}
+
+                        <div class="skill-list">
+
+                            {% for skill in skill_match.matched_skills %}
+                                <span class="skill-tag matched">
+                                    ✓ {{ skill }}
+                                </span>
+                            {% endfor %}
+
+                        </div>
+
+                    {% else %}
+
+                        <p>No matching skills yet.</p>
+
+                    {% endif %}
+
+                    <h3>Missing Skills</h3>
+
+                    {% if skill_match.missing_skills %}
+
+                        <div class="skill-list">
+
+                            {% for skill in skill_match.missing_skills %}
+                                <span class="skill-tag missing">
+                                    {{ skill }}
+                                </span>
+                            {% endfor %}
+
+                        </div>
+
+                    {% else %}
+
+                        <p>You have all the required skills!</p>
+
+                    {% endif %}
+
+                {% else %}
+
+                    <p>No skill requirements specified</p>
+
+                {% endif %}
+
+            </div>
+
+        </section>
+
+        <section class="detail-card">
+
+            <h2>Apply for this Internship</h2>
+
+            {% if has_applied %}
+
+                <div class="empty-state">
+                    <h2>Application Already Submitted</h2>
+                    <p>
+                        You have already applied to this internship.
+                    </p>
+                </div>
+
+            {% else %}
+
+                <p>
+                    Interested in this opportunity? Submit your
+                    application below.
+                </p>
+
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'student.apply_to_internship',
+                        internship_id=internship.internship_id
+                    ) }}"
+                >
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button">
+                            Apply Now
+                        </button>
+
+                        <a href="{{ url_for('student.browse_internships') }}"
+                           class="secondary-button">
+                            Back to Internships
+                        </a>
+                    </div>
+
+                </form>
+
+            {% endif %}
+
+        </section>
+
+    </main>
+
+</body>
+</html>

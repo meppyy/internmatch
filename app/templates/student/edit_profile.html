@@ -4,87 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Profile - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <h1>Edit Profile</h1>
+    {% include "_navigation.html" %}
 
-    <form method="POST">
+    <main class="page-container">
 
-        <div>
-            <label for="phone">Phone:</label>
-            <input
-                type="text"
-                id="phone"
-                name="phone"
-                value="{{ student.phone or '' }}"
-            >
+        <a class="back-link"
+           href="{{ url_for('student.profile') }}">
+            ← Back to Profile
+        </a>
+
+        <div class="page-heading">
+            <span class="eyebrow">YOUR STUDENT ACCOUNT</span>
+            <h1>Edit Profile</h1>
+            <p>Update your personal, academic and professional information.</p>
         </div>
 
-        <br>
+        <form method="POST" class="form-card">
 
-        <div>
-            <label for="education">Education:</label>
-            <textarea
-                id="education"
-                name="education"
-                rows="3"
-            >{{ student.education or '' }}</textarea>
-        </div>
+            <input type="hidden"
+                   name="csrf_token"
+                   value="{{ csrf_token() }}">
 
-        <br>
+            <div class="form-section-heading">
+                <h2>Personal and Professional Details</h2>
+                <p>Keep your profile updated to improve your internship matches.</p>
+            </div>
 
-        <div>
-            <label for="profile_summary">Profile Summary:</label>
-            <textarea
-                id="profile_summary"
-                name="profile_summary"
-                rows="5"
-            >{{ student.profile_summary or '' }}</textarea>
-        </div>
+            <div class="form-grid">
 
-        <br>
+                <div class="form-group">
+                    <label for="phone">Phone</label>
+                    <input
+                        type="text"
+                        id="phone"
+                        name="phone"
+                        value="{{ student.phone or '' }}"
+                    >
+                </div>
 
-        <div>
-            <label for="experience">Experience:</label>
-            <textarea
-                id="experience"
-                name="experience"
-                rows="5"
-            >{{ student.experience or '' }}</textarea>
-        </div>
+                <div class="form-group">
+                    <label for="education">Education</label>
+                    <textarea
+                        id="education"
+                        name="education"
+                        rows="3"
+                    >{{ student.education or '' }}</textarea>
+                </div>
 
-        <br>
+                <div class="form-group">
+                    <label for="profile_summary">Profile Summary</label>
+                    <textarea
+                        id="profile_summary"
+                        name="profile_summary"
+                        rows="5"
+                    >{{ student.profile_summary or '' }}</textarea>
+                </div>
 
-        <div>
-            <label for="projects">Projects:</label>
-            <textarea
-                id="projects"
-                name="projects"
-                rows="5"
-            >{{ student.projects or '' }}</textarea>
-        </div>
+                <div class="form-group">
+                    <label for="experience">Experience</label>
+                    <textarea
+                        id="experience"
+                        name="experience"
+                        rows="5"
+                    >{{ student.experience or '' }}</textarea>
+                </div>
 
-        <br>
+                <div class="form-group">
+                    <label for="projects">Projects</label>
+                    <textarea
+                        id="projects"
+                        name="projects"
+                        rows="5"
+                    >{{ student.projects or '' }}</textarea>
+                </div>
 
-        <div>
-            <label for="certifications">Certifications:</label>
-            <textarea
-                id="certifications"
-                name="certifications"
-                rows="5"
-            >{{ student.certifications or '' }}</textarea>
-        </div>
+                <div class="form-group">
+                    <label for="certifications">Certifications</label>
+                    <textarea
+                        id="certifications"
+                        name="certifications"
+                        rows="5"
+                    >{{ student.certifications or '' }}</textarea>
+                </div>
 
-        <br>
+            </div>
 
-        <button type="submit">Save Changes</button>
+            <div class="form-actions">
 
-    </form>
+                <button type="submit" class="primary-button">
+                    Save Changes
+                </button>
 
-    <br>
+                <a href="{{ url_for('student.profile') }}"
+                   class="secondary-button">
+                    Cancel
+                </a>
 
-    <a href="{{ url_for('student.profile') }}">Back to Profile</a>
+            </div>
+
+        </form>
+
+    </main>
 
 </body>
 </html>

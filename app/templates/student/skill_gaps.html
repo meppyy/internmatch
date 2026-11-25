@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Gap Analysis - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('student.dashboard') }}">
+            ← Back to Dashboard
+        </a>
+
+        <div class="page-heading">
+            <span class="eyebrow">CAREER DEVELOPMENT</span>
+            <h1>Skill Gap Analysis</h1>
+            <p>
+                Discover which skills you could prioritize
+                to improve your internship opportunities.
+            </p>
+        </div>
+
+        <section class="detail-card">
+
+            <div class="section-title">
+                <div>
+                    <h2>Your Current Skills</h2>
+                    <p>Skills already included in your student profile.</p>
+                </div>
+
+                <a href="{{ url_for('student.skills') }}">
+                    Manage Skills →
+                </a>
+            </div>
+
+            {% if student.skills %}
+
+                <div class="skill-list">
+
+                    {% for skill in student.skills %}
+                        <span class="skill-tag matched">
+                            {{ skill.skill_name }}
+                        </span>
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+                    <p>
+                        No skills added yet. Add skills to your profile
+                        or upload a resume to get started.
+                    </p>
+
+                    <div class="page-actions">
+                        <a href="{{ url_for('student.skills') }}"
+                           class="primary-button">
+                            Add Skills
+                        </a>
+
+                        <a href="{{ url_for('student.upload_resume') }}"
+                           class="secondary-button">
+                            Upload Resume
+                        </a>
+                    </div>
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Skills to Prioritize</h2>
+                    <p>
+                        Ranked by how frequently they appear
+                        in active internship listings.
+                    </p>
+                </div>
+            </div>
+
+            {% if skill_gaps %}
+
+                <div class="match-grid">
+
+                    {% for gap in skill_gaps %}
+
+                        <article class="match-card">
+
+                            <span class="stat-label">
+                                PRIORITY #{{ loop.index }}
+                            </span>
+
+                            <h2><strong>{{ gap.skill_name }}</strong></h2>
+
+                            <div class="stat-value">
+                                {{ gap.internship_count }}
+                            </div>
+
+                            <p class="stat-description">Requested by {{ gap.internship_count }} active internship{% if gap.internship_count != 1 %}s{% endif %}.</p>
+
+                            <span class="skill-tag missing">
+                                Skill Gap
+                            </span>
+
+                        </article>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+                    <h2>No Missing Skills Identified</h2>
+
+                    <p>
+                        No missing skills were identified in the available
+                        active internship listings. Some listings may not
+                        specify required skills.
+                    </p>
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <section class="dashboard-cta">
+
+            <div>
+                <h2>Ready to improve your skill set?</h2>
+                <p>
+                    Explore internship opportunities and discover
+                    the skills employers are looking for.
+                </p>
+            </div>
+
+            <div class="page-actions">
+
+                <a href="{{ url_for('student.skills') }}"
+                   class="primary-button">
+                    Manage My Skills
+                </a>
+
+                <a href="{{ url_for('student.browse_internships') }}"
+                   class="secondary-button">
+                    Browse Internships
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+</html>

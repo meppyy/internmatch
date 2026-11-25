@@ -2,28 +2,201 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Internships</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Internships - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>My Internships</h1>
 
-    {% if internships %}
-        {% for internship in internships %}
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+           href="{{ url_for('recruiter.dashboard') }}">
+            ← Back to Dashboard
+        </a>
+
+        <div class="page-heading">
+
             <div>
-                <h2>{{ internship.title }}</h2>
-
-                <p>Company: {{ internship.company_name }}</p>
-                <p>Location: {{ internship.location }}</p>
-                <p>Work Mode: {{ internship.work_mode }}</p>
-                <p>Duration: {{ internship.duration }}</p>
-                <p>Stipend: {{ internship.stipend }}</p>
-                <p>Status: {{ internship.status }}</p>
-                <p>Deadline: {{ internship.deadline }}</p>
+                <span class="eyebrow">RECRUITER WORKSPACE</span>
+                <h1>My Internships</h1>
+                <p>Manage all the opportunities posted by your company.</p>
             </div>
-            <hr>
-        {% endfor %}
-    {% else %}
-        <p>No internships created yet.</p>
-    {% endif %}
+
+            <a class="primary-button"
+               href="{{ url_for('recruiter.create_internship') }}">
+                + Create Internship
+            </a>
+
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <div class="listing-summary">
+            <strong>{{ internships|length }}</strong>
+            <span>internship listing(s)</span>
+        </div>
+
+        {% if internships %}
+
+            <div class="recruiter-listing-grid">
+
+                {% for internship in internships %}
+
+                    <article class="recruiter-listing-card">
+
+                        <div class="listing-card-top">
+
+                            <div>
+                                <h2>{{ internship.title }}</h2>
+
+                                <p class="company-name">
+                                    {{ internship.company_name }}
+                                </p>
+                            </div>
+
+                            <span class="status-badge status-{{ internship.status|lower }}">
+                                {{ internship.status }}
+                            </span>
+
+                        </div>
+
+                        <div class="listing-meta">
+
+                            <div>
+                                <span>Location</span>
+                                <strong>
+                                    {{ internship.location or "Not specified" }}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Work Mode</span>
+                                <strong>
+                                    {{ internship.work_mode or "Not specified" }}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Duration</span>
+                                <strong>
+                                    {{ internship.duration or "Not specified" }}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Stipend</span>
+                                <strong>
+                                    {{ internship.stipend or "Not specified" }}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Deadline</span>
+                                <strong>
+                                    {{ internship.deadline.strftime("%d %b %Y") if internship.deadline else "Not specified" }}
+                                </strong>
+                            </div>
+
+                        </div>
+
+                        <div class="listing-card-footer">
+
+                            <span class="listing-id">
+                                Listing #{{ internship.internship_id }}
+                            </span>
+
+                            <div class="listing-actions">
+
+                                <a class="secondary-button"
+                                    href="{{ url_for(
+                                        'recruiter.edit_internship',
+                                        internship_id=internship.internship_id
+                                    ) }}">
+                                    Edit Listing
+                                </a>
+
+                                <a class="secondary-button"
+                                   href="{{ url_for(
+                                       'recruiter.internship_details',
+                                       internship_id=internship.internship_id
+                                   ) }}">
+                                    View Details
+                                </a>
+
+                                <a class="primary-button"
+                                   href="{{ url_for(
+                                       'recruiter.internship_applications',
+                                       internship_id=internship.internship_id
+                                   ) }}">
+                                    View Applicants
+                                </a>
+
+                                <form
+    class="inline-form"
+    method="POST"
+    action="{{ url_for(
+        'recruiter.delete_internship',
+        internship_id=internship.internship_id
+    ) }}"
+    onsubmit="return confirm(
+        'Are you sure you want to delete this internship?'
+    )"
+>
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <button type="submit" class="danger-button">
+        Delete Listing
+    </button>
+</form>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+
+                <div class="empty-icon">▤</div>
+
+                <h2>No internships created yet.</h2>
+
+                <p>
+                    Create your first internship listing to start
+                    reaching students.
+                </p>
+
+                <a class="primary-button"
+                   href="{{ url_for('recruiter.create_internship') }}">
+                    Create Your First Internship
+                </a>
+
+            </div>
+
+        {% endif %}
+
+    </main>
+
 </body>
 </html>

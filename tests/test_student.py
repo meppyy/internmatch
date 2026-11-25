@@ -1,15 +1,47 @@
+from urllib import response
+
 import pytest
 from io import BytesIO
 
+from pathlib import Path
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from app import create_app
 from app.extensions import db
 from app.models import User, StudentProfile
+from app.models import Internship, RecruiterProfile, Application, Resume, Skill
+from app.services.date_utils import current_ist_date
+from pypdf import PdfWriter
+from docx import Document
 
+
+def make_valid_pdf():
+    """Create a structurally valid PDF without selectable text."""
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+
+    output = BytesIO()
+    writer.write(output)
+
+    return output.getvalue()
+
+def make_valid_docx():
+    document = Document()
+
+    document.add_paragraph(
+        "Software developer with Python and Flask experience."
+    )
+
+    output = BytesIO()
+    document.save(output)
+
+    return output.getvalue()
 
 @pytest.fixture
 def app():
     app = create_app({
         "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
     })
 
@@ -49,6 +81,7 @@ def login_student(client, student_user):
     with client.session_transaction() as session:
         session["_user_id"] = str(student_user.user_id)
         session["_fresh"] = True
+        session["user_session_version"] = student_user.session_version
 
 
 def test_student_dashboard_requires_login(client):
@@ -145,11 +178,13 @@ def test_student_can_remove_skill(client, student_user):
 def test_student_can_upload_resume(client, student_user):
     login_student(client, student_user)
 
+    pdf_content = make_valid_pdf()
+
     response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"fake pdf content"),
+                BytesIO(pdf_content),
                 "test_resume.pdf"
             )
         },
@@ -158,6 +193,7 @@ def test_student_can_upload_resume(client, student_user):
     )
 
     assert response.status_code == 200
+    assert b"no selectable text" in response.data
 
     with client.application.app_context():
         profile = StudentProfile.query.filter_by(
@@ -166,6 +202,7 @@ def test_student_can_upload_resume(client, student_user):
 
         assert profile.resume is not None
         assert profile.resume.file_name == "test_resume.pdf"
+        assert profile.resume.extracted_text == ""
 
 def test_student_cannot_upload_invalid_resume(client, student_user):
     login_student(client, student_user)
@@ -191,6 +228,32 @@ def test_student_cannot_upload_invalid_resume(client, student_user):
 
         assert profile.resume is None
 
+def test_student_cannot_upload_legacy_doc(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"legacy doc content"),
+                "legacy_resume.doc"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 200
+    assert b"Invalid file type" in response.data
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None
+
 def test_student_can_replace_resume(client, student_user):
     login_student(client, student_user)
 
@@ -198,7 +261,7 @@ def test_student_can_replace_resume(client, student_user):
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"first resume"),
+                BytesIO(make_valid_pdf()),
                 "resume_one.pdf"
             )
         },
@@ -212,7 +275,7 @@ def test_student_can_replace_resume(client, student_user):
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"second resume"),
+                BytesIO(make_valid_pdf()),
                 "resume_two.pdf"
             )
         },
@@ -234,11 +297,13 @@ def test_student_can_replace_resume(client, student_user):
 def test_student_can_access_resume(client, student_user):
     login_student(client, student_user)
 
+    resume_content = make_valid_pdf()
+
     upload_response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"resume content"),
+                BytesIO(resume_content),
                 "access_test.pdf"
             )
         },
@@ -251,7 +316,7 @@ def test_student_can_access_resume(client, student_user):
     response = client.get("/student/resume")
 
     assert response.status_code == 200
-    assert response.data == b"resume content"
+    assert response.data == resume_content
 
 def test_student_profile_completion(client, student_user):
     login_student(client, student_user)
@@ -260,3 +325,1217 @@ def test_student_profile_completion(client, student_user):
 
     assert response.status_code == 200
     assert b"0% Complete" in response.data
+
+
+def test_student_resume_routes_use_supabase_storage(
+    client, student_user, monkeypatch
+):
+    from app.services import storage as storage_service
+
+    class FakeBucket:
+        def __init__(self):
+            self.files = {}
+
+        def upload(self, path, file, file_options):
+            self.files[path] = file
+
+        def download(self, path):
+            return self.files[path]
+
+        def remove(self, paths):
+            for path in paths:
+                self.files.pop(path, None)
+
+    class FakeStorage:
+        def __init__(self, bucket):
+            self.bucket = bucket
+
+        def from_(self, bucket_name):
+            assert bucket_name == "internmatch-resumes"
+            return self.bucket
+
+    class FakeClient:
+        def __init__(self, bucket):
+            self.storage = FakeStorage(bucket)
+
+    bucket = FakeBucket()
+
+    monkeypatch.setattr(
+        storage_service,
+        "create_client",
+        lambda url, key: FakeClient(bucket)
+    )
+
+    client.application.config.update({
+        "STORAGE_BACKEND": "supabase",
+        "SUPABASE_URL": "https://example.supabase.co",
+        "SUPABASE_SECRET_KEY": "test-secret",
+        "SUPABASE_STORAGE_BUCKET": "internmatch-resumes"
+    })
+
+    login_student(client, student_user)
+
+    first_content = make_valid_pdf()
+
+    first_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(first_content),
+                "first_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert first_response.status_code == 200
+    assert len(bucket.files) == 1
+
+    old_path = next(iter(bucket.files))
+
+    second_content = make_valid_pdf()
+
+    second_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(second_content),
+                "second_resume.pdf"
+         )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert second_response.status_code == 200
+    assert len(bucket.files) == 1
+    assert old_path not in bucket.files
+
+    # Verify that the student can view the replacement.
+    response = client.get("/student/resume")
+
+    assert response.status_code == 200
+    assert response.data == second_content
+
+def test_student_can_browse_active_internships(
+    client, student_user, app
+):
+    with app.app_context():
+        recruiter_user = User(
+            name="Test Recruiter",
+            email="browse-recruiter@test.com",
+            password_hash="test-password",
+            role="recruiter"
+        )
+
+        db.session.add(recruiter_user)
+        db.session.flush()
+
+        recruiter = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="Test Company"
+        )
+
+        db.session.add(recruiter)
+        db.session.flush()
+
+        internships = [
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Active Python Internship",
+                company_name="Test Company",
+                status="Active"
+            ),
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Draft Python Internship",
+                company_name="Test Company",
+                status="Draft"
+            ),
+            Internship(
+                recruiter_id=recruiter.recruiter_id,
+                title="Closed Python Internship",
+                company_name="Test Company",
+                status="Closed"
+            )
+        ]
+
+        db.session.add_all(internships)
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+    assert b"Active Python Internship" in response.data
+    assert b"Draft Python Internship" not in response.data
+    assert b"Closed Python Internship" not in response.data
+
+
+def test_student_browse_shows_explainable_skill_match(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "skill-match-recruiter@test.com",
+        [
+            {
+                "title": "Python Developer Internship",
+                "status": "Active"
+            },
+            {
+                "title": "Internship Without Skill Requirements",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        internship = Internship.query.get(internship_ids[0])
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # Assign existing skills to the student.
+        for skill_name in ["Python", "SQL", "Git"]:
+            skill = get_or_create_skill(skill_name)
+            profile.skills.append(skill)
+
+        # Assign required skills to the internship.
+        for skill_name in ["Python", "SQL", "Flask"]:
+            skill = get_or_create_skill(skill_name)
+            internship.skills.append(skill)
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+
+    # Two of three required skills match: 67%.
+    assert b"67%" in response.data
+
+    assert b"Matched Skills" in response.data
+    assert b"Python" in response.data
+    assert b"SQL" in response.data
+
+    assert b"Missing Skills" in response.data
+    assert b"Flask" in response.data
+
+    # No requirements should not be presented as a 0% match.
+    assert b"No skill requirements specified" in response.data
+
+
+def test_student_sees_empty_state_when_no_active_internships(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.get("/student/internships")
+
+    assert response.status_code == 200
+    assert b"No active internships are available right now." in response.data
+
+def create_test_internships(app, email, records):
+    with app.app_context():
+        recruiter_user = User(
+            name="Test Recruiter",
+            email=email,
+            password_hash="test-password",
+            role="recruiter"
+        )
+
+        db.session.add(recruiter_user)
+        db.session.flush()
+
+        recruiter = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="Test Company"
+        )
+
+        db.session.add(recruiter)
+        db.session.flush()
+
+        internship_ids = []
+
+        for record in records:
+            internship = Internship(
+                recruiter_id=recruiter.recruiter_id,
+                company_name="Test Company",
+                **record
+            )
+
+            db.session.add(internship)
+            db.session.flush()
+            internship_ids.append(internship.internship_id)
+
+        db.session.commit()
+
+        return internship_ids
+
+def test_student_can_search_and_filter_internships(
+    client, student_user, app
+):
+    create_test_internships(
+        app,
+        "search-recruiter@test.com",
+        [
+            {
+                "title": "Remote Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Hybrid Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Hybrid",
+                "status": "Active"
+            },
+            {
+                "title": "Remote Data Analyst",
+                "description": "SQL analysis",
+                "location": "Mumbai",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Closed Python Internship",
+                "description": "Python development",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Closed"
+            }
+        ]
+    )
+
+    login_student(client, student_user)
+
+    response = client.get(
+        "/student/internships?q=Python&work_mode=Remote"
+    )
+
+    assert response.status_code == 200
+    assert b"Remote Python Internship" in response.data
+    assert b"Hybrid Python Internship" not in response.data
+    assert b"Remote Data Analyst" not in response.data
+    assert b"Closed Python Internship" not in response.data
+
+
+def test_student_can_view_active_internship_details(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "details-recruiter@test.com",
+        [
+            {
+                "title": "Active Detail Internship",
+                "description": "Build Flask applications.",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Active"
+            },
+            {
+                "title": "Closed Detail Internship",
+                "description": "Closed listing",
+                "location": "Delhi",
+                "work_mode": "Remote",
+                "status": "Closed"
+            }
+        ]
+    )
+
+    login_student(client, student_user)
+
+    response = client.get(
+        f"/student/internships/{internship_ids[0]}"
+    )
+
+    assert response.status_code == 200
+    assert b"Active Detail Internship" in response.data
+    assert b"Build Flask applications." in response.data
+
+    closed_response = client.get(
+        f"/student/internships/{internship_ids[1]}"
+    )
+
+    assert closed_response.status_code == 404
+
+
+def test_student_internship_details_shows_explainable_skill_match(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "detail-match-recruiter@test.com",
+        [
+            {
+                "title": "Backend Developer Internship",
+                "status": "Active"
+            },
+            {
+                "title": "Internship Without Skill Requirements",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        internship = Internship.query.get(internship_ids[0])
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        for skill_name in ["Python", "SQL", "Git"]:
+            profile.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        for skill_name in ["Python", "SQL", "Flask"]:
+            internship.skills.append(
+                get_or_create_skill(skill_name)
+            )
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get(
+        f"/student/internships/{internship_ids[0]}"
+    )
+
+    assert response.status_code == 200
+    assert b"Skill Match" in response.data
+    assert b"67%" in response.data
+    assert b"Matched Skills" in response.data
+    assert b"Python" in response.data
+    assert b"SQL" in response.data
+    assert b"Missing Skills" in response.data
+    assert b"Flask" in response.data
+
+    no_requirements_response = client.get(
+        f"/student/internships/{internship_ids[1]}"
+    )
+
+    assert no_requirements_response.status_code == 200
+    assert (
+        b"No skill requirements specified"
+        in no_requirements_response.data
+    )
+
+
+def test_student_can_apply_without_resume(client, student_user, app):
+    internship_ids = create_test_internships(
+        app,
+        "apply-no-resume@test.com",
+        [{
+            "title": "Application Test Internship",
+            "status": "Active"
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply"
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = Application.query.filter_by(
+            student_id=StudentProfile.query.filter_by(
+                user_id=student_user.user_id
+            ).first().student_id,
+            internship_id=internship_id
+        ).one()
+
+        assert application.resume_id is None
+        assert application.resume is None
+        assert application.resume_snapshot is None
+
+
+def test_student_application_attaches_existing_resume(
+    client, student_user, app, tmp_path
+):
+    app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
+
+    internship_ids = create_test_internships(
+        app,
+        "apply-with-resume@test.com",
+        [{
+            "title": "Resume Application Internship",
+            "status": "Active"
+        }]
+    )
+
+    original_content = b"original student resume document"
+    original_file = tmp_path / "student_resume.pdf"
+    original_file.write_bytes(original_content)
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        resume = Resume(
+            student_id=profile.student_id,
+            file_name="student_resume.pdf",
+            file_path=str(original_file)
+        )
+
+        db.session.add(resume)
+        db.session.commit()
+
+        resume_id = resume.resume_id
+
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_ids[0]}/apply"
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        application = Application.query.filter_by(
+            internship_id=internship_ids[0]
+        ).one()
+
+        assert application.resume_id == resume_id
+
+        snapshot = application.resume_snapshot
+
+        assert snapshot is not None
+        assert snapshot.file_name == "student_resume.pdf"
+        assert snapshot.file_path != str(original_file)
+
+        snapshot_path = snapshot.file_path
+        snapshot_filename = snapshot.file_name
+
+        with open(snapshot_path, "rb") as snapshot_file:
+            assert snapshot_file.read() == original_content
+
+        # Simulate the student replacing their current resume with Resume B.
+        replacement_content = b"replacement resume B"
+        replacement_file = tmp_path / "replacement_resume.pdf"
+        replacement_file.write_bytes(replacement_content)
+
+        application.resume.file_path = str(replacement_file)
+        application.resume.file_name = "replacement_resume.pdf"
+
+        db.session.commit()
+
+        # Simulate cleanup of the old current resume after replacement.
+        original_file.unlink()
+
+        # The current Resume record should now point to Resume B.
+        assert application.resume.file_name == "replacement_resume.pdf"
+        assert application.resume.file_path == str(replacement_file)
+
+        with open(application.resume.file_path, "rb") as current_file:
+            assert current_file.read() == replacement_content
+
+        # The application's independent snapshot must still contain Resume A.
+        assert application.resume_snapshot.file_path == snapshot_path
+        assert application.resume_snapshot.file_name == snapshot_filename
+
+        with open(application.resume_snapshot.file_path, "rb") as snapshot_file:
+            assert snapshot_file.read() == original_content
+
+
+def test_student_cannot_apply_twice(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-duplicate@test.com",
+        [{
+            "title": "Duplicate Application Internship",
+            "status": "Active"
+        }]
+    )
+
+    login_student(client, student_user)
+
+    url = f"/student/internships/{internship_ids[0]}/apply"
+
+    first_response = client.post(url)
+    second_response = client.post(url)
+
+    assert first_response.status_code == 302
+    assert second_response.status_code == 302
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_ids[0]
+        ).count()
+
+        assert count == 1
+
+def test_student_cannot_apply_to_closed_internship(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-closed@test.com",
+        [{
+            "title": "Closed Application Test Internship",
+            "status": "Closed"
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    # A direct POST must not bypass the Closed listing restriction.
+    response = client.post(
+        f"/student/internships/{internship_id}/apply"
+    )
+
+    assert response.status_code == 404
+
+    # No application should be created.
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 0
+
+
+def test_student_cannot_apply_after_internship_deadline(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "apply-expired@test.com",
+        [{
+            "title": "Expired Deadline Internship",
+            "status": "Active",
+            "deadline": current_ist_date() - timedelta(days=1)
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"The application deadline for this internship has passed."
+        in response.data
+    )
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 0
+
+
+@pytest.mark.parametrize("days_until_deadline", [0, 1])
+def test_student_can_apply_on_or_before_internship_deadline(
+    client, student_user, app, days_until_deadline
+):
+    internship_ids = create_test_internships(
+        app,
+        f"apply-valid-deadline-{days_until_deadline}@test.com",
+        [{
+            "title": "Valid Deadline Internship",
+            "status": "Active",
+            "deadline": current_ist_date() + timedelta(
+                days=days_until_deadline
+            )
+        }]
+    )
+
+    internship_id = internship_ids[0]
+    login_student(client, student_user)
+
+    response = client.post(
+        f"/student/internships/{internship_id}/apply",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Your application was submitted successfully." in response.data
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        application_count = Application.query.filter_by(
+            student_id=student_profile.student_id,
+            internship_id=internship_id
+        ).count()
+
+        assert application_count == 1
+
+def test_current_ist_date_uses_india_calendar_day(monkeypatch):
+    from app.services import date_utils
+
+    class FixedDateTime:
+        @staticmethod
+        def now(tz=None):
+            assert tz == ZoneInfo("Asia/Kolkata")
+
+            utc_time = datetime(
+                2026, 11, 24, 20, 0,
+                tzinfo=timezone.utc
+            )
+
+            return utc_time.astimezone(tz)
+
+    monkeypatch.setattr(
+        date_utils,
+        "datetime",
+        FixedDateTime
+    )
+
+    assert date_utils.current_ist_date() == date(2026, 11, 25)
+
+def test_student_application_history_requires_login(client):
+    response = client.get("/student/applications")
+
+    assert response.status_code == 302
+
+
+def test_student_can_view_only_their_application_history(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "history-recruiter@test.com",
+        [
+            {
+                "title": "My Active Internship",
+                "status": "Active"
+            },
+            {
+                "title": "My Closed Internship",
+                "status": "Closed"
+            },
+            {
+                "title": "Another Student Internship",
+                "status": "Active"
+            }
+        ]
+    )
+
+    with app.app_context():
+        student_profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        other_user = User(
+            name="Another Student",
+            email="another-history-student@test.com",
+            password_hash="test-password",
+            role="student"
+        )
+        db.session.add(other_user)
+        db.session.flush()
+
+        other_profile = StudentProfile(
+            user_id=other_user.user_id
+        )
+        db.session.add(other_profile)
+        db.session.flush()
+
+        applications = [
+            Application(
+                student_id=student_profile.student_id,
+                internship_id=internship_ids[0],
+                status="Under Review"
+            ),
+            Application(
+                student_id=student_profile.student_id,
+                internship_id=internship_ids[1],
+                status="Rejected"
+            ),
+            Application(
+                student_id=other_profile.student_id,
+                internship_id=internship_ids[2],
+                status="Applied"
+            )
+        ]
+
+        db.session.add_all(applications)
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/applications")
+
+    assert response.status_code == 200
+    assert b"My Active Internship" in response.data
+    assert b"My Closed Internship" in response.data
+    assert b"Under Review" in response.data
+    assert b"Rejected" in response.data
+    assert b"Another Student Internship" not in response.data
+
+
+def test_student_sees_empty_application_history(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.get("/student/applications")
+
+    assert response.status_code == 200
+    assert b"You haven't applied to any internships yet." in response.data
+
+def test_student_upload_saves_extracted_resume_text(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    extracted_content = (
+        "Python, Flask, SQL and Machine Learning experience"
+    )
+
+    def fake_extract(file_content, filename):
+        assert file_content == b"resume bytes"
+        assert filename == "parsed_resume.pdf"
+        return extracted_content
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        fake_extract
+    )
+
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"resume bytes"),
+                "parsed_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume.extracted_text == extracted_content
+
+
+def test_replacing_resume_updates_extracted_text(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    extracted_versions = iter([
+        "First resume: Python and Java",
+        "Second resume: Python, Flask and SQL"
+    ])
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        lambda content, filename: next(extracted_versions)
+    )
+
+    login_student(client, student_user)
+
+    for filename, content in [
+        ("first_resume.pdf", b"first resume"),
+        ("second_resume.pdf", b"second resume")
+    ]:
+        response = client.post(
+            "/student/resume/upload",
+            data={
+                "resume": (BytesIO(content), filename)
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True
+        )
+
+        assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume.file_name == "second_resume.pdf"
+        assert profile.resume.extracted_text == (
+            "Second resume: Python, Flask and SQL"
+        )
+
+
+def test_corrupted_resume_upload_is_rejected_without_replacing_existing_resume(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    login_student(client, student_user)
+
+    # First upload a valid existing resume.
+    existing_content = make_valid_pdf()
+
+    first_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(existing_content),
+                "existing_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert first_response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        original_file_path = profile.resume.file_path
+        original_resume_name = profile.resume.file_name
+
+    # Simulate a corrupted document during extraction.
+    def failed_extraction(file_content, filename):
+        raise ValueError(
+            "The PDF is corrupted or cannot be read. "
+            "Please upload a valid PDF."
+        )
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        failed_extraction
+    )
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"corrupted pdf content"),
+                "corrupted_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"corrupted" in response.data
+
+    # The original resume must remain untouched.
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume.file_name == original_resume_name
+        assert profile.resume.file_path == original_file_path
+
+def test_resume_upload_adds_extracted_skills_and_preserves_manual_skills(
+    client, student_user, monkeypatch
+):
+    from app.services import resume_parser
+
+    monkeypatch.setattr(
+        resume_parser,
+        "extract_resume_text",
+        lambda content, filename: (
+            "Python, Flask, SQL and JavaScript development"
+        )
+    )
+
+    # Add skills manually before uploading the resume.
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        for skill_name in ["Git", "Python"]:
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            profile.skills.append(skill)
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"resume bytes"),
+                "skills_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        skill_names = [
+            skill.skill_name for skill in profile.skills
+        ]
+
+        assert set(skill_names) == {
+            "Git",
+            "Python",
+            "Flask",
+            "SQL",
+            "JavaScript"
+        }
+
+        assert len(skill_names) == len(set(skill_names))
+
+def test_student_can_view_prioritized_skill_gaps(
+    client, student_user, app
+):
+    internship_ids = create_test_internships(
+        app,
+        "skill-gap-page@test.com",
+        [
+            {"title": "Backend Internship One", "status": "Active"},
+            {"title": "Backend Internship Two", "status": "Active"},
+            {"title": "Data Internship", "status": "Active"},
+            {"title": "Draft Internship", "status": "Draft"},
+            {"title": "Closed Internship", "status": "Closed"}
+        ]
+    )
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        def get_or_create_skill(skill_name):
+            skill = Skill.query.filter_by(
+                skill_name=skill_name
+            ).first()
+
+            if not skill:
+                skill = Skill(skill_name=skill_name)
+                db.session.add(skill)
+                db.session.flush()
+
+            return skill
+
+        # The student already knows Python.
+        profile.skills.append(
+            get_or_create_skill("Python")
+        )
+
+        internship_requirements = {
+            internship_ids[0]: ["Python", "SQL", "Flask"],
+            internship_ids[1]: ["SQL", "Flask", "JavaScript"],
+            internship_ids[2]: ["SQL", "Git"],
+            internship_ids[3]: ["Docker", "SQL"],
+            internship_ids[4]: ["Docker", "Java"]
+        }
+
+        for internship_id, skill_names in internship_requirements.items():
+            internship = db.session.get(
+                Internship, internship_id
+            )
+
+            for skill_name in skill_names:
+                internship.skills.append(
+                    get_or_create_skill(skill_name)
+                )
+
+        db.session.commit()
+
+    login_student(client, student_user)
+
+    response = client.get("/student/skill-gaps")
+
+    assert response.status_code == 200
+    assert b"Skill Gap Analysis" in response.data
+
+    assert b"Your Current Skills" in response.data
+    assert b"Python" in response.data
+
+    assert b"Skills to Prioritize" in response.data
+    assert b"SQL" in response.data
+    assert b"3 active internships" in response.data
+    assert b"Flask" in response.data
+    assert b"2 active internships" in response.data
+    assert b"Git" in response.data
+    assert b"JavaScript" in response.data
+
+    # Skills from closed and draft internships must be excluded.
+    assert b"<strong>Docker</strong>" not in response.data
+    assert b"<strong>Java</strong>" not in response.data
+
+    # JavaScript is required by an active internship.
+    assert b"<strong>JavaScript</strong>" in response.data
+
+def test_student_can_upload_docx_and_extract_skills(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    docx_content = make_valid_docx()
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(docx_content),
+                "student_resume.docx"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is not None
+        assert profile.resume.file_name == "student_resume.docx"
+
+        assert "Python" in profile.resume.extracted_text
+        assert "Flask" in profile.resume.extracted_text
+
+        skill_names = {
+            skill.skill_name for skill in profile.skills
+        }
+
+        assert {"Python", "Flask"}.issubset(skill_names)
+
+def test_student_cannot_upload_empty_resume(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b""),
+                "empty_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 200
+    assert b"empty" in response.data.lower()
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None
+
+def test_student_upload_rejects_files_over_size_limit(
+    client, student_user, app
+):
+    login_student(client, student_user)
+
+    # Use a smaller limit to keep the test lightweight.
+    app.config["MAX_CONTENT_LENGTH"] = 1024
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"x" * 2048),
+                "large_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 413
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None

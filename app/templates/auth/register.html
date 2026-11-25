@@ -2,63 +2,168 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="apple-touch-icon"
+          href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
     <title>Register - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
-    <h1>Create an InternMatch Account</h1>
+    {% include "_navigation.html" %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <p>{{ message }}</p>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    <main class="auth-page">
 
-    <form method="POST">
+        <div class="auth-heading">
+            <span class="eyebrow">JOIN INTERNMATCH</span>
 
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required>
-        <br><br>
+            <h1>Create Your Account</h1>
 
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required>
-        <br><br>
+            <p>
+                Start discovering opportunities and building your
+                professional future.
+            </p>
+        </div>
 
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-        <br><br>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="flash-message {{ category }}" role="alert">
+                        {{ message }}
+                    </p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-        <label for="confirm_password">Confirm Password:</label>
-        <input
-            type="password"
-            id="confirm_password"
-            name="confirm_password"
-            required
+        <form
+            method="POST"
+            action="{{ url_for('auth.register') }}"
+            class="form-card auth-form"
         >
-        <br><br>
 
-        <label for="role">Role:</label>
-        <select id="role" name="role" required>
-            <option value="">Select role</option>
-            <option value="student">Student</option>
-            <option value="recruiter">Recruiter</option>
-        </select>
-        <br><br>
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
 
-        <label for="company_name">Company Name:</label>
-        <input type="text" id="company_name" name="company_name">
-        <br><br>
+            <div class="form-group">
+                <label for="name">Full Name</label>
 
-        <button type="submit">Register</button>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Enter your full name"
+                    autocomplete="name"
+                    required
+                >
+            </div>
 
-        <p>
-            Already have an account?
-            <a href="{{ url_for('auth.login') }}">Login</a>
-        </p>
+            <div class="form-group">
+                <label for="email">Email Address</label>
 
-    </form>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Create a password"
+                    autocomplete="new-password"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    placeholder="Enter your password again"
+                    autocomplete="new-password"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="role">Account Type</label>
+
+                <select id="role" name="role" required>
+                    <option value="">Choose your role</option>
+                    <option value="student">Student</option>
+                    <option value="recruiter">Recruiter</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="company-field" hidden>
+                <label for="company_name">Company Name</label>
+
+                <input
+                    type="text"
+                    id="company_name"
+                    name="company_name"
+                    placeholder="Enter your organisation's name"
+                    autocomplete="organization"
+                >
+            </div>
+
+            <button
+                type="submit"
+                class="primary-button auth-submit"
+            >
+                Create Account
+            </button>
+
+            <p class="auth-footer">
+                Already have an account?
+                <a href="{{ url_for('auth.login') }}">Log in</a>
+            </p>
+
+        </form>
+
+    </main>
+
+    <script>
+        const roleSelect = document.getElementById("role");
+        const companyField = document.getElementById("company-field");
+        const companyInput = document.getElementById("company_name");
+
+        function toggleCompanyField() {
+            const isRecruiter = roleSelect.value === "recruiter";
+
+            companyField.hidden = !isRecruiter;
+            companyInput.required = isRecruiter;
+
+            if (!isRecruiter) {
+                companyInput.value = "";
+            }
+        }
+
+        roleSelect.addEventListener("change", toggleCompanyField);
+        toggleCompanyField();
+    </script>
 
 </body>
 </html>

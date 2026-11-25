@@ -2,45 +2,133 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Resume - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <h1>Upload Resume</h1>
+    {% include "_navigation.html" %}
 
-    <p>
-        <a href="{{ url_for('student.profile') }}">Back to Profile</a>
-    </p>
+    <main class="page-container">
 
-    {% if student.resume %}
-        <p>
-            Current resume:
-            <strong>{{ student.resume.file_name }}</strong>
-        </p>
-    {% else %}
-        <p>No resume uploaded yet.</p>
-    {% endif %}
-    
-    {% if error %}
-        <p>{{ error }}</p>
-    {% endif %}
+        <a class="back-link"
+           href="{{ url_for('student.profile') }}">
+            ← Back to Profile
+        </a>
 
-    <form method="POST" enctype="multipart/form-data">
+        <div class="page-heading">
+            <span class="eyebrow">STUDENT PROFILE</span>
+            <h1>Upload Resume</h1>
+            <p>
+                Upload your latest resume so recruiters can review
+                your qualifications and InternMatch can identify
+                your skills.
+            </p>
+        </div>
 
-        <label for="resume">Choose Resume:</label>
+        {% if error %}
+            <p class="flash-message error" role="alert">
+                {{ error }}
+            </p>
+        {% endif %}
 
-        <input
-            type="file"
-            id="resume"
-            name="resume"
-            required
-        >
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message" role="status">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
 
-        <br><br>
+        <section class="detail-card">
 
-        <button type="submit">Upload Resume</button>
+            <h2>Current Resume</h2>
 
-    </form>
+            {% if student.resume %}
+
+                <div class="resume-card">
+
+                    <div>
+                        <strong>{{ student.resume.file_name }}</strong>
+                        <p>Your resume is currently uploaded.</p>
+                    </div>
+
+                    <span class="resume-status">Uploaded</span>
+
+                </div>
+
+                <div class="page-actions">
+                    <a class="secondary-button"
+                       href="{{ url_for('student.view_resume') }}">
+                        View Current Resume
+                    </a>
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+                    <p>You haven't uploaded a resume yet.</p>
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <section class="detail-card">
+
+            <h2>
+                {% if student.resume %}
+                    Replace Your Resume
+                {% else %}
+                    Choose Your Resume
+                {% endif %}
+            </h2>
+
+            <p>
+                Accepted formats: PDF and DOCX.
+            </p>
+
+            <form method="POST" enctype="multipart/form-data">
+
+                <input type="hidden"
+                       name="csrf_token"
+                       value="{{ csrf_token() }}">
+
+                <div class="form-group">
+
+                    <label for="resume">Select Resume</label>
+
+                    <input
+                        type="file"
+                        id="resume"
+                        name="resume"
+                        accept=".pdf,.docx"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-actions">
+
+                    <button type="submit" class="primary-button">
+                        Upload Resume
+                    </button>
+
+                    <a href="{{ url_for('student.profile') }}"
+                       class="secondary-button">
+                        Cancel
+                    </a>
+
+                </div>
+
+            </form>
+
+        </section>
+
+    </main>
 
 </body>
 </html>

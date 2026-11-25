@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="status">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>Admin Dashboard</h1>
+                <p>Platform overview and statistics.</p>
+            </div>
+        </div>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>User Statistics</h2>
+                    <p>An overview of registered platform accounts.</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Users</span>
+                    <strong class="stat-value">{{ total_users }}</strong>
+                    <span class="stat-description">
+                        Registered platform users
+                    </span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Students</span>
+                    <strong class="stat-value">{{ total_students }}</strong>
+                    <span class="stat-description">
+                        Registered student profiles
+                    </span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Recruiters</span>
+                    <strong class="stat-value">{{ total_recruiters }}</strong>
+                    <span class="stat-description">
+                        Registered recruiter profiles
+                    </span>
+                </article>
+
+            </div>
+
+        </section>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Platform Activity</h2>
+                    <p>An overview of internships and applications.</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Internships</span>
+                    <strong class="stat-value">{{ total_internships }}</strong>
+                    <span class="stat-description">
+                        Internship listings on the platform
+                    </span>
+                </article>
+
+                <article class="stat-card stat-card-active">
+                    <span class="stat-label">Active Internships</span>
+                    <strong class="stat-value">{{ active_internships }}</strong>
+                    <span class="stat-description">
+                        Currently active listings
+                    </span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Applications</span>
+                    <strong class="stat-value">{{ total_applications }}</strong>
+                    <span class="stat-description">
+                        Applications submitted by students
+                    </span>
+                </article>
+
+            </div>
+
+        </section>
+
+            <div class="page-actions">
+
+            <a class="primary-button"
+               href="{{ url_for('admin.internship_management') }}">
+                Manage All Internships
+            </a>
+
+            <a class="secondary-button"
+               href="{{ url_for('admin.user_management') }}">
+                Manage Users
+            </a>
+
+            <a class="secondary-button"
+                href="{{ url_for('admin.application_monitor') }}">
+                Monitor Applications
+            </a>
+
+            <a class="secondary-button"
+                href="{{ url_for('admin.activity_history') }}">
+                View Administrator Activity
+            </a>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

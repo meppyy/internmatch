@@ -2,96 +2,314 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Create Internship</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% if internship %}Edit Internship{% else %}Create Internship{% endif %}
+        - InternMatch
+    </title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <a class="back-link"
+   href="{{ url_for('recruiter.internships') if internship else url_for('recruiter.dashboard') }}">
+    {% if internship %}
+        ← Back to My Internships
+    {% else %}
+        ← Back to Dashboard
+    {% endif %}
+</a>
+
+        <div class="page-heading">
+            <span class="eyebrow">RECRUITER WORKSPACE</span>
+            <h1>
+                {% if internship %}Edit Internship{% else %}Create an Internship{% endif %}
+            </h1>
+            <p>
+    {% if internship %}
+        Update the details of your internship opportunity.
+    {% else %}
+        Provide the details students need to understand
+        your opportunity.
+    {% endif %}
+</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}" role="alert">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+                {% set initial_work_mode = request.form.get(
+    'work_mode',
+    internship.work_mode if internship else ''
+) %}
+
+{% set initial_status = request.form.get(
+    'status',
+    internship.status if internship else 'Active'
+) %}
+
+{% set initial_deadline = (
+    internship.deadline.isoformat()
+    if internship and internship.deadline else ''
+) %}
+
+{% set initial_required_skills = '' %}
+
+{% if internship %}
+    {% if internship.required_skills %}
+        {% set initial_required_skills = internship.required_skills %}
+    {% else %}
+        {% set initial_required_skills = (
+            internship.skills
+            | map(attribute='skill_name')
+            | join(', ')
+        ) %}
+    {% endif %}
+{% endif %}
 
 
-    <h1>Create Internship</h1>
+        <form
+    method="POST"
+    action="{{ url_for(
+        'recruiter.edit_internship',
+        internship_id=internship.internship_id
+    ) if internship else url_for('recruiter.create_internship') }}"
+    class="form-card recruiter-form"
+>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <p class="{{ category }}">{{ message }}</p>
-        {% endfor %}
-    {% endwith %}
+            <input type="hidden"
+                   name="csrf_token"
+                   value="{{ csrf_token() }}">
 
-    <form method="POST">
+            <div class="form-section-heading">
+                <h2>Basic Information</h2>
+                <p>Tell students about the internship opportunity.</p>
+            </div>
 
-    <label for="title">Internship Title:</label>
-    <input
-        type="text"
-        id="title"
-        name="title"
-    >
+            <div class="form-group">
+                <label for="title">Internship Title *</label>
 
-    <label for="description">Description:</label>
-    <textarea
-        id="description"
-        name="description"
-    ></textarea>
+                <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value="{{ request.form.get(
+                        'title',
+                        internship.title if internship else ''
+                        ) }}"
+                    placeholder="e.g. Python Developer Intern"
+                    required
+                >
+            </div>
 
-    <label for="location">Location:</label>
-    <input
-        type="text"
-        id="location"
-        name="location"
-    >
+            <div class="form-group">
+                <label for="description">Description *</label>
 
-    <label for="work_mode">Work Mode:</label>
-    <select id="work_mode" name="work_mode">
-        <option value="">Select Work Mode</option>
-        <option value="Remote">Remote</option>
-        <option value="Hybrid">Hybrid</option>
-        <option value="On-site">On-site</option>
-    </select>
+                <textarea
+                    id="description"
+                    name="description"
+                    rows="5"
+                    placeholder="Describe the role, responsibilities and learning opportunities..."
+                    required
+                >{{ request.form.get(
+                    'description',
+                    internship.description if internship else ''
+                ) }}</textarea>
+            </div>
 
-    <label for="duration">Duration:</label>
-    <input
-        type="text"
-        id="duration"
-        name="duration"
-    >
+            <div class="form-section-heading">
+                <h2>Internship Details</h2>
+                <p>Specify the work arrangement and compensation.</p>
+            </div>
 
-    <label for="stipend">Stipend:</label>
-    <input
-        type="number"
-        id="stipend"
-        name="stipend"
-        min="0"
-    >
+            <div class="form-grid">
 
-    <label for="eligibility">Eligibility:</label>
-    <textarea
-        id="eligibility"
-        name="eligibility"
-    ></textarea>
+                <div class="form-group">
+                    <label for="location">Location *</label>
 
-    <label for="required_skills">Required Skills:</label>
-    <input
-        type="text"
-        id="required_skills"
-        name="required_skills"
-        placeholder="Python, SQL, Git"
-    >
+                    <input
+                        type="text"
+                        id="location"
+                        name="location"
+                        value="{{ request.form.get(
+                            'location',
+                            internship.location if internship else ''
+                        ) }}"
+                        placeholder="e.g. New Delhi"
+                        required
+                    >
+                </div>
 
-    <label for="deadline">Application Deadline:</label>
-    <input
-        type="date"
-        id="deadline"
-        name="deadline"
-    >
+                <div class="form-group">
+                    <label for="work_mode">Work Mode *</label>
 
-    <label for="status">Status:</label>
-    <select id="status" name="status">
-        <option value="Draft">Draft</option>
-        <option value="Active">Active</option>
-        <option value="Closed">Closed</option>
-    </select>
+                    <select id="work_mode" name="work_mode" required>
 
-    <button type="submit">Create Internship</button>
+                        <option value="">Select Work Mode</option>
 
-    </form>
+                        <option value="Remote"
+                            {% if initial_work_mode == 'Remote' %}selected{% endif %}>
+                            Remote
+                        </option>
+
+                        <option value="Hybrid"
+                            {% if initial_work_mode == 'Hybrid' %}selected{% endif %}>
+                            Hybrid
+                        </option>
+
+                        <option value="On-site"
+                            {% if initial_work_mode == 'On-site' %}selected{% endif %}>
+                            On-site
+                        </option>
+
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="duration">Duration *</label>
+
+                    <input
+                        type="text"
+                        id="duration"
+                        name="duration"
+                        value="{{ request.form.get(
+                            'duration',
+                            internship.duration if internship else ''
+                        ) }}"
+                        placeholder="e.g. 3 Months"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="stipend">Stipend (₹) *</label>
+
+                    <input
+                        type="number"
+                        id="stipend"
+                        name="stipend"
+                        min="0"
+                        step="0.01"
+                        value="{{ request.form.get(
+                            'stipend',
+                            internship.stipend if internship else ''
+                        ) }}"
+                        placeholder="e.g. 10000"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="deadline">Application Deadline *</label>
+
+                    <input
+                        type="date"
+                        id="deadline"
+                        name="deadline"
+                        value="{{ request.form.get('deadline', initial_deadline) }}"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Listing Status *</label>
+
+                    <select id="status" name="status" required>
+
+                        <option value="Draft"
+                            {% if initial_status == 'Draft' %}selected{% endif %}>
+                            Draft
+                        </option>
+
+                        <option value="Active"
+                            {% if initial_status == 'Active' %}selected{% endif %}>
+                            Active
+                        </option>
+
+                        <option value="Closed"
+                            {% if initial_status == 'Closed' %}selected{% endif %}>
+                            Closed
+                        </option>
+
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="form-section-heading">
+                <h2>Eligibility and Skills</h2>
+                <p>
+                    Help students determine whether they are suitable
+                    candidates.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="eligibility">
+                    Eligibility Requirements *
+                </label>
+
+                <textarea
+                    id="eligibility"
+                    name="eligibility"
+                    rows="4"
+                    placeholder="Mention degree, academic requirements or other criteria..."
+                    required
+                >{{ request.form.get(
+                    'eligibility',
+                    internship.eligibility if internship else ''
+                ) }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="required_skills">Required Skills *</label>
+
+                <input
+                    type="text"
+                    id="required_skills"
+                    name="required_skills"
+                    value="{{ request.form.get(
+                        'required_skills',
+                        initial_required_skills
+                    ) }}"
+                    placeholder="Python, SQL, Flask, Git"
+                    required
+                >
+
+                <small>Separate skills using commas.</small>
+            </div>
+
+            <div class="form-actions">
+
+                <a class="secondary-button"
+                   href="{{ url_for('recruiter.internships') }}">
+                    Cancel
+                </a>
+
+                <button type="submit" class="primary-button">
+                     {% if internship %}
+                        Save Changes
+                    {% else %}
+                        Create Internship
+                    {% endif %}
+                </button>
+
+            </div>
+
+        </form>
+
+    </main>
 
 </body>
 </html>

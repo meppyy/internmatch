@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Applications - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container">
+
+        <div class="page-heading">
+            <span class="eyebrow">STUDENT WORKSPACE</span>
+            <h1>My Applications</h1>
+            <p>
+                Track the internships you've applied for and
+                review the status of your applications.
+            </p>
+        </div>
+
+        <div class="section-title">
+            <div>
+                <h2>Application History</h2>
+                <p>
+                    {{ applications|length }} application(s) submitted.
+                </p>
+            </div>
+        </div>
+
+        {% if applications %}
+
+            <div class="internship-grid">
+
+                {% for application in applications %}
+
+                    <article class="internship-card">
+
+                        <div class="listing-card-top">
+
+                            <div>
+                                <h2>{{ application.internship.title }}</h2>
+
+                                <p class="company-name">
+                                    {{ application.internship.company_name }}
+                                </p>
+                            </div>
+
+                            <span class="status-badge">
+                                {{ application.status }}
+                            </span>
+
+                        </div>
+
+                        <div class="listing-meta">
+
+                            <div>
+                                <span>Application Date</span>
+                                <strong>
+                                    {{ application.application_date.strftime("%d %b %Y") }}
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Application Status</span>
+                                <strong>{{ application.status }}</strong>
+                            </div>
+
+                            <div>
+                                <span>Internship Status</span>
+                                <strong>{{ application.internship.status }}</strong>
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                <h2>No Applications Yet</h2>
+
+                <p>You haven't applied to any internships yet.</p>
+
+                <a href="{{ url_for('student.browse_internships') }}"
+                   class="primary-button">
+                    Browse Internships
+                </a>
+            </div>
+
+        {% endif %}
+
+    </main>
+
+</body>
+</html> 

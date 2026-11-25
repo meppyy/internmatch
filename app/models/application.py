@@ -6,6 +6,14 @@ from ..extensions import db
 class Application(db.Model):
     __tablename__ = "applications"
 
+    __table_args__ = (
+    db.UniqueConstraint(
+        "student_id",
+        "internship_id",
+        name="uq_application_student_internship"
+    ),
+    )
+
     application_id = db.Column(db.Integer, primary_key=True)
 
     student_id = db.Column(
@@ -23,7 +31,7 @@ class Application(db.Model):
     resume_id = db.Column(
         db.Integer,
         db.ForeignKey("resumes.resume_id"),
-        nullable=False
+        nullable=True
     )
 
     application_date = db.Column(
@@ -66,4 +74,11 @@ class Application(db.Model):
     resume = db.relationship(
         "Resume",
         back_populates="applications"
+    )
+
+    resume_snapshot = db.relationship(
+        "ApplicationResumeSnapshot",
+        back_populates="application",
+        uselist=False,
+        cascade="all, delete-orphan"
     )

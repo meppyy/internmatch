@@ -3,18 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recruiter Profile</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <title>Company Profile - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="app-page">
+<body>
+
     {% include "_navigation.html" %}
 
-    <h1>Recruiter Profile</h1>
+    <main class="page-container">
 
-    <p>Company Name: {{ recruiter_profile.company_name }}</p>
-    <p>Company Description: {{ recruiter_profile.company_description }}</p>
-    <p>Contact Phone: {{ recruiter_profile.contact_phone }}</p>
-    <p>Email: {{ recruiter_email }}</p>
+        <a class="back-link"
+           href="{{ url_for('recruiter.dashboard') }}">
+            ← Back to Dashboard
+        </a>
+
+        <div class="page-heading">
+            <span class="eyebrow">RECRUITER ACCOUNT</span>
+            <h1>Company Profile</h1>
+            <p>Your organisation's information.</p>
+        </div>
+
+        <section class="detail-card company-profile-card">
+
+            <div class="company-profile-heading">
+
+                <div class="company-avatar">
+                    {{ recruiter_profile.company_name[0]|upper }}
+                </div>
+
+                <div>
+                    <h2>{{ recruiter_profile.company_name }}</h2>
+                    <p>{{ recruiter_email }}</p>
+                </div>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h3>Company Description</h3>
+
+                <p>
+                    {{ recruiter_profile.company_description or
+                       "No company description added yet." }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h3>Contact Phone</h3>
+
+                <p>
+                    {{ recruiter_profile.contact_phone or "Not provided" }}
+                </p>
+
+            </div>
+
+            <div class="detail-section">
+
+                <h3>Account Email</h3>
+
+                <p>{{ recruiter_email }}</p>
+
+            </div>
+
+            <div class="page-actions">
+
+                <a class="primary-button"
+                   href="{{ url_for('recruiter.edit_profile') }}">
+                    Edit Company Profile
+                </a>
+
+                <a class="secondary-button"
+                   href="{{ url_for('recruiter.dashboard') }}">
+                    Back to Dashboard
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
 
 </body>
 </html>

@@ -3,43 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Recruiter Profile</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <title>Edit Company Profile - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="app-page">
+<body>
+
     {% include "_navigation.html" %}
 
-    <h1>Edit Recruiter Profile</h1>
+    <main class="page-container">
 
-    <form method="POST">
+        <a class="back-link"
+           href="{{ url_for('recruiter.profile') }}">
+            ← Back to Company Profile
+        </a>
 
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="page-heading">
+            <span class="eyebrow">RECRUITER ACCOUNT</span>
+            <h1>Edit Company Profile</h1>
+            <p>Keep your organisation's information up to date.</p>
+        </div>
 
-        <label for="company_name">Company Name:</label>
-        <input
-            type="text"
-            id="company_name"
-            name="company_name"
-            value="{{ recruiter_profile.company_name }}"
-        >
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
 
-        <label for="company_description">Company Description:</label>
-        <textarea
-            id="company_description"
-            name="company_description"
-        >{{ recruiter_profile.company_description or "" }}</textarea>
+        <form method="POST" class="form-card">
 
-        <label for="contact_phone">Contact Phone:</label>
-        <input
-            type="text"
-            id="contact_phone"
-            name="contact_phone"
-            value="{{ recruiter_profile.contact_phone or "" }}"
-        >
+            <input type="hidden"
+                   name="csrf_token"
+                   value="{{ csrf_token() }}">
 
-        <button type="submit">Save Changes</button>
+            <div class="form-section-heading">
+                <h2>Company Information</h2>
+                <p>Update your organisation's details.</p>
+            </div>
 
-    </form>
+            <div class="form-group">
+
+                <label for="company_name">Company Name *</label>
+
+                <input
+                    type="text"
+                    id="company_name"
+                    name="company_name"
+                    value="{{ recruiter_profile.company_name }}"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="company_description">
+                    Company Description
+                </label>
+
+                <textarea
+                    id="company_description"
+                    name="company_description"
+                    rows="6"
+                    placeholder="Tell students about your organisation..."
+                >{{ recruiter_profile.company_description or "" }}</textarea>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="contact_phone">Contact Phone</label>
+
+                <input
+                    type="tel"
+                    id="contact_phone"
+                    name="contact_phone"
+                    value="{{ recruiter_profile.contact_phone or '' }}"
+                    placeholder="Enter your contact number"
+                >
+
+            </div>
+
+            <div class="form-actions">
+
+                <a class="secondary-button"
+                   href="{{ url_for('recruiter.profile') }}">
+                    Cancel
+                </a>
+
+                <button type="submit" class="primary-button">
+                    Save Changes
+                </button>
+
+            </div>
+
+        </form>
+
+    </main>
 
 </body>
 </html>

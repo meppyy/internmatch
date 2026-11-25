@@ -3,19 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recruiter Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <title>Recruiter Dashboard - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="app-page">
+<body>
+
     {% include "_navigation.html" %}
 
-    <h1>Recruiter Dashboard</h1>
+    <main class="page-container recruiter-dashboard">
 
-    <p>Welcome {{ recruiter_name }}</p>
-    <p>Company: {{ company_name }}</p>
-    <p>Total Internships: {{ total_internships }}</p>
-    <p>Active Internships: {{ active_internships }}</p>
-    <p>Closed Internships: {{ closed_internships }}</p>
-    
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message {{ category }}">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <div class="page-heading">
+
+            <div>
+                <span class="eyebrow">RECRUITER WORKSPACE</span>
+                <h1>Recruiter Dashboard</h1>
+                <p>Welcome back, {{ recruiter_name }}.</p>
+            </div>
+
+            <a class="primary-button"
+               href="{{ url_for('recruiter.create_internship') }}">
+                + Create Internship
+            </a>
+
+        </div>
+
+        <section class="company-summary">
+
+            <div>
+                <span class="summary-label">COMPANY ACCOUNT</span>
+                <h2>{{ company_name }}</h2>
+                <p>
+                    Manage your internship opportunities and
+                    company profile.
+                </p>
+            </div>
+
+            <a href="{{ url_for('recruiter.profile') }}"
+               class="secondary-button">
+                View Company Profile
+            </a>
+
+        </section>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Internship Overview</h2>
+                    <p>A summary of your posted opportunities.</p>
+                </div>
+
+                <a href="{{ url_for('recruiter.internships') }}">
+                    View All →
+                </a>
+            </div>
+
+            <div class="stats-grid">
+
+                <article class="stat-card">
+
+                    <span class="stat-label">
+                        Total Internships
+                    </span>
+
+                    <strong class="stat-value">
+                        {{ total_internships }}
+                    </strong>
+
+                    <span class="stat-description">
+                        All your listings
+                    </span>
+
+                </article>
+
+                <article class="stat-card stat-card-active">
+
+                    <span class="stat-label">Active</span>
+
+                    <strong class="stat-value">
+                        {{ active_internships }}
+                    </strong>
+
+                    <span class="stat-description">
+                        Currently available
+                    </span>
+
+                </article>
+
+                <article class="stat-card stat-card-closed">
+
+                    <span class="stat-label">Closed</span>
+
+                    <strong class="stat-value">
+                        {{ closed_internships }}
+                    </strong>
+
+                    <span class="stat-description">
+                        No longer accepting applications
+                    </span>
+
+                </article>
+
+            </div>
+
+        </section>
+
+        <section class="dashboard-section">
+
+            <div class="section-title">
+                <div>
+                    <h2>Quick Actions</h2>
+                    <p>Manage your recruiter account.</p>
+                </div>
+            </div>
+
+            <div class="recruiter-action-grid">
+
+                <a class="action-card"
+                   href="{{ url_for('recruiter.create_internship') }}">
+
+                    <span class="action-icon">＋</span>
+
+                    <h3>Post an Internship</h3>
+
+                    <p>Create a new opportunity for students.</p>
+
+                    <span class="action-link">
+                        Create Listing →
+                    </span>
+
+                </a>
+
+                <a class="action-card"
+                   href="{{ url_for('recruiter.internships') }}">
+
+                    <span class="action-icon">▤</span>
+
+                    <h3>My Internships</h3>
+
+                    <p>View and manage your existing listings.</p>
+
+                    <span class="action-link">
+                        View Listings →
+                    </span>
+
+                </a>
+
+                <a class="action-card"
+                   href="{{ url_for('recruiter.profile') }}">
+
+                    <span class="action-icon">◉</span>
+
+                    <h3>Company Profile</h3>
+
+                    <p>See your company information.</p>
+
+                    <span class="action-link">
+                        View Profile →
+                    </span>
+
+                </a>
+
+                <a class="action-card"
+                   href="{{ url_for('recruiter.edit_profile') }}">
+
+                    <span class="action-icon">✎</span>
+
+                    <h3>Edit Company Details</h3>
+
+                    <p>Update your company description and contact details.</p>
+
+                    <span class="action-link">
+                        Edit Details →
+                    </span>
+
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
+
 </body>
 </html>

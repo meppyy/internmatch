@@ -13,13 +13,19 @@ def test_internal_pages_load_shared_responsive_stylesheet():
 
     login_response = client.get("/auth/login")
     register_response = client.get("/auth/register")
-    css_response = client.get("/static/css/app.css")
+    css_response = client.get("/static/css/style.css")
 
     assert login_response.status_code == 200
     assert register_response.status_code == 200
 
-    assert b"css/app.css" in login_response.data
-    assert b"css/app.css" in register_response.data
+    # Both authentication pages should load the shared stylesheet.
+    assert b"css/style.css" in login_response.data
+    assert b"css/style.css" in register_response.data
 
+    # Verify the shared stylesheet is served successfully.
     assert css_response.status_code == 200
-    assert b"@media (max-width: 640px)" in css_response.data
+
+    # Verify responsive authentication styling exists.
+    assert b"@media (max-width: 600px)" in css_response.data
+    assert b".auth-page" in css_response.data
+    assert b".auth-form" in css_response.data

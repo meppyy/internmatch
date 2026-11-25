@@ -1,8 +1,7 @@
-const CACHE_NAME = "internmatch-static-v1";
+const CACHE_NAME = "internmatch-static-v2";
 
 const STATIC_ASSETS = [
-    "/static/css/app.css",
-    "/static/css/landing.css",
+    "/static/css/style.css",
     "/static/js/navigation.js",
     "/static/icons/icon-192.png",
     "/static/icons/icon-512.png",

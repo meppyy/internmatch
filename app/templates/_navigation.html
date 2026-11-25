@@ -3,15 +3,6 @@
         <span>Intern</span>Match
     </a>
 
-    <button
-        class="app-nav-toggle"
-        type="button"
-        aria-label="Toggle navigation"
-        aria-expanded="false"
-        aria-controls="app-navigation"
-    >
-        ☰ Menu
-    </button>
 
     <nav class="nav-links app-nav-links" id="app-navigation">
 
@@ -86,11 +77,6 @@
     {% endif %}
 
 </header>
-
-<script
-    defer
-    src="{{ url_for('static', filename='js/navigation.js') }}"
-></script>
 
 <script>
     if ("serviceWorker" in navigator) {

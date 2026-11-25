@@ -59,6 +59,33 @@ def login_as(client, email):
         follow_redirects=False
     )
 
+def create_recruiter_internship(
+    email, title, status="Draft"
+):
+    recruiter_user = create_user(
+        title + " Recruiter",
+        email,
+        "recruiter"
+    )
+
+    profile = RecruiterProfile(
+        user_id=recruiter_user.user_id,
+        company_name=title + " Company"
+    )
+    db.session.add(profile)
+    db.session.flush()
+
+    internship = Internship(
+        recruiter_id=profile.recruiter_id,
+        title=title,
+        company_name=profile.company_name,
+        status=status
+    )
+
+    db.session.add(internship)
+    db.session.commit()
+
+    return internship.internship_id
 
 def test_admin_dashboard_requires_login(client):
     response = client.get("/admin/dashboard")
@@ -801,3 +828,214 @@ def test_admin_user_directory_shows_delete_action_only_for_disabled_accounts(
         f'action="/admin/users/{admin_id}/delete"'
         not in page
     )
+
+def test_admin_can_view_all_platform_internships(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "global-admin@test.com", "admin"
+        )
+
+        first_id = create_recruiter_internship(
+            "global-recruiter-1@test.com",
+            "First Recruiter Internship",
+            "Active"
+        )
+
+        second_id = create_recruiter_internship(
+            "global-recruiter-2@test.com",
+            "Second Recruiter Internship",
+            "Draft"
+        )
+
+    login_as(client, "global-admin@test.com")
+
+    response = client.get("/admin/internships")
+
+    assert response.status_code == 200
+    assert b"Internship Management" in response.data
+    assert b"First Recruiter Internship" in response.data
+    assert b"Second Recruiter Internship" in response.data
+
+    with app.app_context():
+        assert db.session.get(Internship, first_id) is not None
+        assert db.session.get(Internship, second_id) is not None
+
+def test_admin_can_update_any_internship_status(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "global-status-admin@test.com", "admin"
+        )
+
+        internship_id = create_recruiter_internship(
+            "global-status-recruiter@test.com",
+            "Recruiter Owned Internship",
+            "Draft"
+        )
+
+    login_as(client, "global-status-admin@test.com")
+
+    response = client.post(
+        f"/admin/internships/{internship_id}/status",
+        data={"status": "Active"},
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Internship status updated successfully." in response.data
+
+    with app.app_context():
+        internship = db.session.get(Internship, internship_id)
+        assert internship.status == "Active"
+
+        # Administrative management must not change ownership.
+        recruiter = RecruiterProfile.query.get(
+            internship.recruiter_id
+        )
+        assert recruiter.company_name == "Recruiter Owned Internship Company"
+
+def test_admin_cannot_set_invalid_internship_status(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "invalid-status-admin@test.com", "admin"
+        )
+
+        internship_id = create_recruiter_internship(
+            "invalid-status-recruiter@test.com",
+            "Protected Status Internship",
+            "Draft"
+        )
+
+    login_as(client, "invalid-status-admin@test.com")
+
+    response = client.post(
+        f"/admin/internships/{internship_id}/status",
+        data={"status": "Invalid Status"},
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Invalid internship status." in response.data
+
+    with app.app_context():
+        internship = db.session.get(Internship, internship_id)
+        assert internship.status == "Draft"
+
+def test_admin_can_delete_internship_without_applications(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "delete-listing-admin@test.com", "admin"
+        )
+
+        internship_id = create_recruiter_internship(
+            "delete-listing-recruiter@test.com",
+            "Deletable Admin Internship",
+            "Draft"
+        )
+
+    login_as(client, "delete-listing-admin@test.com")
+
+    delete_url = f"/admin/internships/{internship_id}/delete"
+
+    assert client.get(delete_url).status_code == 405
+
+    response = client.post(
+        delete_url,
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Internship deleted successfully." in response.data
+
+    with app.app_context():
+        assert db.session.get(Internship, internship_id) is None
+
+def test_admin_cannot_delete_internship_with_applications(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "protected-listing-admin@test.com", "admin"
+        )
+
+        internship_id = create_recruiter_internship(
+            "protected-listing-recruiter@test.com",
+            "Internship With History",
+            "Closed"
+        )
+
+        student_user = create_user(
+            "Historical Applicant",
+            "historical-applicant@test.com",
+            "student"
+        )
+
+        profile = StudentProfile(user_id=student_user.user_id)
+        db.session.add(profile)
+        db.session.flush()
+
+        application = Application(
+            student_id=profile.student_id,
+            internship_id=internship_id,
+            status="Rejected"
+        )
+        db.session.add(application)
+        db.session.commit()
+
+        application_id = application.application_id
+
+    login_as(client, "protected-listing-admin@test.com")
+
+    response = client.post(
+        f"/admin/internships/{internship_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"This internship has application history and cannot be deleted."
+        in response.data
+    )
+
+    with app.app_context():
+        assert db.session.get(Internship, internship_id) is not None
+        assert db.session.get(Application, application_id) is not None
+
+def test_non_admin_cannot_manage_platform_internships(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Regular Student", "global-blocked@test.com", "student"
+        )
+
+        internship_id = create_recruiter_internship(
+            "blocked-listing-recruiter@test.com",
+            "Protected Global Listing",
+            "Draft"
+        )
+
+    login_as(client, "global-blocked@test.com")
+
+    assert client.get("/admin/internships").status_code == 403
+
+    assert client.post(
+        f"/admin/internships/{internship_id}/status",
+        data={"status": "Closed"}
+    ).status_code == 403
+
+    assert client.post(
+        f"/admin/internships/{internship_id}/delete"
+    ).status_code == 403
+
+    with app.app_context():
+        internship = db.session.get(Internship, internship_id)
+        assert internship is not None
+        assert internship.status == "Draft"

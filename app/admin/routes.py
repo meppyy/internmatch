@@ -40,6 +40,70 @@ def dashboard():
         total_applications=total_applications
     )
 
+@admin.route("/internships")
+@role_required("admin")
+def internship_management():
+    internships = Internship.query.order_by(
+        Internship.created_at.desc()
+    ).all()
+
+    return render_template(
+        "admin/internships.html",
+        internships=internships
+    )
+
+
+@admin.route(
+    "/internships/<int:internship_id>/status",
+    methods=["POST"]
+)
+@role_required("admin")
+def update_internship_status(internship_id):
+    internship = Internship.query.get_or_404(internship_id)
+
+    new_status = request.form.get("status", "").strip()
+
+    if new_status not in {"Draft", "Active", "Closed"}:
+        flash("Invalid internship status.", "error")
+        return redirect(url_for("admin.internship_management"))
+
+    internship.status = new_status
+    db.session.commit()
+
+    flash(
+        "Internship status updated successfully.",
+        "success"
+    )
+
+    return redirect(url_for("admin.internship_management"))
+
+
+@admin.route(
+    "/internships/<int:internship_id>/delete",
+    methods=["POST"]
+)
+@role_required("admin")
+def delete_internship(internship_id):
+    internship = Internship.query.get_or_404(internship_id)
+
+    # Preserve all application history.
+    existing_application = Application.query.filter_by(
+        internship_id=internship.internship_id
+    ).first()
+
+    if existing_application:
+        flash(
+            "This internship has application history and cannot be deleted.",
+            "error"
+        )
+        return redirect(url_for("admin.internship_management"))
+
+    db.session.delete(internship)
+    db.session.commit()
+
+    flash("Internship deleted successfully.", "success")
+
+    return redirect(url_for("admin.internship_management"))
 
 @admin.route("/users")
 @role_required("admin")

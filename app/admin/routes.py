@@ -1,10 +1,10 @@
 from flask import (
-    render_template, flash, redirect, request, url_for
+    render_template, flash, redirect, request, url_for, current_app
 )
 from flask_login import current_user
 from . import admin
 from ..auth.decorators import role_required
-
+from ..services.storage import delete_resume_file
 from ..extensions import db
 from ..models.user import User
 from ..models.student import StudentProfile
@@ -111,5 +111,128 @@ def update_user_status(user_id):
             db.session.commit()
 
             flash("Account enabled successfully.", "success")
+
+    return redirect(url_for("admin.user_management"))
+
+@admin.route(
+    "/users/<int:user_id>/delete",
+    methods=["POST"]
+)
+@role_required("admin")
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    # Administrators cannot delete their own accounts.
+    if user.user_id == current_user.user_id:
+        flash("You cannot delete your own account.", "error")
+        return redirect(url_for("admin.user_management"))
+
+    # Accounts must be disabled before permanent deletion.
+    if user.is_active:
+        flash(
+            "Disable the account before deleting it.",
+            "error"
+        )
+        return redirect(url_for("admin.user_management"))
+
+    resume_file_paths = []
+
+    if user.role == "student":
+        profile = StudentProfile.query.filter_by(
+            user_id=user.user_id
+        ).first()
+
+        if profile:
+            # Preserve all application history.
+            existing_application = Application.query.filter_by(
+                student_id=profile.student_id
+            ).first()
+
+            if existing_application:
+                flash(
+                    "This student has application history and "
+                    "cannot be deleted.",
+                    "error"
+                )
+                return redirect(
+                    url_for("admin.user_management")
+                )
+
+            if profile.resume and profile.resume.file_path:
+                resume_file_paths.append(
+                    profile.resume.file_path
+                )
+
+    elif user.role == "recruiter":
+        profile = RecruiterProfile.query.filter_by(
+            user_id=user.user_id
+        ).first()
+
+        if profile:
+            # Preserve internship listings and their history.
+            existing_internship = Internship.query.filter_by(
+                recruiter_id=profile.recruiter_id
+            ).first()
+
+            if existing_internship:
+                flash(
+                    "This recruiter has internship listings and "
+                    "cannot be deleted.",
+                    "error"
+                )
+                return redirect(
+                    url_for("admin.user_management")
+                )
+
+    elif user.role == "admin":
+        # Never remove the last available administrator.
+        active_admins = User.query.filter_by(
+            role="admin",
+            is_active=True
+        ).count()
+
+        if active_admins < 1:
+            flash(
+                "At least one active administrator must remain.",
+                "error"
+            )
+            return redirect(
+                url_for("admin.user_management")
+            )
+
+    else:
+        flash(
+            "This account type cannot be deleted.",
+            "error"
+        )
+        return redirect(url_for("admin.user_management"))
+
+    # Delete database records only after all safeguards pass.
+    db.session.delete(user)
+    db.session.commit()
+
+    # Clean up external resume files after the database commit.
+    # This avoids deleting a file while its database record
+    # still exists if the database transaction fails.
+    cleanup_failed = False
+
+    for file_path in resume_file_paths:
+        try:
+            delete_resume_file(file_path)
+        except Exception:
+            cleanup_failed = True
+            current_app.logger.exception(
+                "Resume cleanup failed after deleting user %s.",
+                user_id
+            )
+
+    if cleanup_failed:
+        flash(
+            "Account deleted, but its stored resume could not "
+            "be removed. Manual storage cleanup is required.",
+            "warning"
+        )
+    else:
+        flash("Account deleted successfully.", "success")
 
     return redirect(url_for("admin.user_management"))

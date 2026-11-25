@@ -7,7 +7,8 @@ from app.models import (
     StudentProfile,
     RecruiterProfile,
     Internship,
-    Application
+    Application,
+    Resume
 )
 from werkzeug.security import generate_password_hash
 
@@ -447,3 +448,356 @@ def test_non_admin_cannot_access_admin_dashboard(
     response = client.get("/admin/dashboard")
 
     assert response.status_code == 403
+
+def test_admin_can_delete_disabled_student_and_resume(
+    client, app, tmp_path
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "delete-admin@test.com", "admin"
+        )
+
+        student = create_user(
+            "Student To Delete", "delete-student@test.com", "student"
+        )
+        student_id = student.user_id
+        student.is_active = False
+
+        profile = StudentProfile(user_id=student_id)
+        db.session.add(profile)
+        db.session.flush()
+
+        resume_path = tmp_path / "student_resume.pdf"
+        resume_path.write_bytes(b"test resume")
+
+        resume = Resume(
+            student_id=profile.student_id,
+            file_name="student_resume.pdf",
+            file_path=str(resume_path)
+        )
+        db.session.add(resume)
+        db.session.commit()
+
+    login_as(client, "delete-admin@test.com")
+
+    delete_url = f"/admin/users/{student_id}/delete"
+
+    assert client.get(delete_url).status_code == 405
+
+    response = client.post(
+        delete_url,
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Account deleted successfully." in response.data
+    assert not resume_path.exists()
+
+    with app.app_context():
+        assert db.session.get(User, student_id) is None
+        assert StudentProfile.query.filter_by(
+            user_id=student_id
+        ).first() is None
+        assert Resume.query.filter_by(
+            student_id=student_id
+        ).first() is None
+
+def test_admin_cannot_delete_student_with_applications(
+    client, app, tmp_path
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "history-admin@test.com", "admin"
+        )
+
+        student_user = create_user(
+            "Student With History",
+            "history-student@test.com",
+            "student"
+        )
+        student_user.is_active = False
+
+        recruiter_user = create_user(
+            "Recruiter", "history-recruiter@test.com", "recruiter"
+        )
+
+        student = StudentProfile(user_id=student_user.user_id)
+        recruiter = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="History Company"
+        )
+
+        db.session.add_all([student, recruiter])
+        db.session.flush()
+
+        internship = Internship(
+            recruiter_id=recruiter.recruiter_id,
+            title="Historical Internship",
+            company_name="History Company",
+            status="Closed"
+        )
+        db.session.add(internship)
+        db.session.flush()
+
+        resume_path = tmp_path / "protected_resume.pdf"
+        resume_path.write_bytes(b"protected resume")
+
+        resume = Resume(
+            student_id=student.student_id,
+            file_name="protected_resume.pdf",
+            file_path=str(resume_path)
+        )
+        db.session.add(resume)
+        db.session.flush()
+
+        application = Application(
+            student_id=student.student_id,
+            internship_id=internship.internship_id,
+            resume_id=resume.resume_id,
+            status="Rejected"
+        )
+        db.session.add(application)
+        db.session.commit()
+
+        application_id = application.application_id
+        student_id = student_user.user_id
+
+    login_as(client, "history-admin@test.com")
+
+    response = client.post(
+        f"/admin/users/{student_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"This student has application history and cannot be deleted."
+        in response.data
+    )
+
+    with app.app_context():
+        assert db.session.get(User, student_id) is not None
+        assert db.session.get(
+            Application, application_id
+        ) is not None
+        assert resume_path.exists()
+
+def test_admin_cannot_delete_recruiter_with_internships(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "listing-admin@test.com", "admin"
+        )
+
+        recruiter_user = create_user(
+            "Recruiter With Listings",
+            "listing-recruiter@test.com",
+            "recruiter"
+        )
+        recruiter_user.is_active = False
+
+        profile = RecruiterProfile(
+            user_id=recruiter_user.user_id,
+            company_name="Protected Company"
+        )
+        db.session.add(profile)
+        db.session.flush()
+
+        internship = Internship(
+            recruiter_id=profile.recruiter_id,
+            title="Protected Internship",
+            company_name="Protected Company",
+            status="Closed"
+        )
+        db.session.add(internship)
+        db.session.commit()
+
+        recruiter_id = recruiter_user.user_id
+        internship_id = internship.internship_id
+
+    login_as(client, "listing-admin@test.com")
+
+    response = client.post(
+        f"/admin/users/{recruiter_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"This recruiter has internship listings and cannot be deleted."
+        in response.data
+    )
+
+    with app.app_context():
+        assert db.session.get(User, recruiter_id) is not None
+        assert db.session.get(Internship, internship_id) is not None
+
+def test_admin_cannot_delete_active_user_account(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin", "active-delete-admin@test.com", "admin"
+        )
+        student = create_user(
+            "Active Student",
+            "active-delete-student@test.com",
+            "student"
+        )
+        student_id = student.user_id
+        db.session.commit()
+
+    login_as(client, "active-delete-admin@test.com")
+
+    response = client.post(
+        f"/admin/users/{student_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Disable the account before deleting it." in response.data
+
+    with app.app_context():
+        assert db.session.get(User, student_id) is not None
+
+def test_admin_cannot_delete_own_account(client, app):
+    with app.app_context():
+        admin = create_user(
+            "Platform Admin", "self-delete@test.com", "admin"
+        )
+        admin_id = admin.user_id
+        db.session.commit()
+
+    login_as(client, "self-delete@test.com")
+
+    response = client.post(
+        f"/admin/users/{admin_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"You cannot delete your own account." in response.data
+
+    with app.app_context():
+        assert db.session.get(User, admin_id) is not None
+
+
+def test_non_admin_cannot_delete_user_account(client, app):
+    with app.app_context():
+        student = create_user(
+            "Student", "delete-blocked@test.com", "student"
+        )
+        target = create_user(
+            "Target", "delete-target@test.com", "student"
+        )
+        target.is_active = False
+        target_id = target.user_id
+        db.session.commit()
+
+    login_as(client, "delete-blocked@test.com")
+
+    response = client.post(
+        f"/admin/users/{target_id}/delete"
+    )
+
+    assert response.status_code == 403
+
+    with app.app_context():
+        assert db.session.get(User, target_id) is not None
+
+def test_admin_can_delete_disabled_admin_while_another_active_admin_remains(
+    client, app
+):
+    with app.app_context():
+        active_admin = create_user(
+            "Active Admin",
+            "remaining-admin@test.com",
+            "admin"
+        )
+        active_admin_id = active_admin.user_id
+
+        disabled_admin = create_user(
+            "Disabled Admin",
+            "disabled-admin@test.com",
+            "admin"
+        )
+        disabled_admin_id = disabled_admin.user_id
+        disabled_admin.is_active = False
+
+        db.session.commit()
+
+    login_as(client, "remaining-admin@test.com")
+
+    response = client.post(
+        f"/admin/users/{disabled_admin_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Account deleted successfully." in response.data
+
+    with app.app_context():
+        assert db.session.get(User, disabled_admin_id) is None
+
+        remaining = db.session.get(User, active_admin_id)
+        assert remaining is not None
+        assert remaining.is_active is True
+
+        assert User.query.filter_by(
+            role="admin",
+            is_active=True
+        ).count() == 1
+
+def test_admin_user_directory_shows_delete_action_only_for_disabled_accounts(
+    client, app
+):
+    with app.app_context():
+        admin = create_user(
+            "Platform Admin",
+            "delete-ui-admin@test.com",
+            "admin"
+        )
+        admin_id = admin.user_id
+
+        active_student = create_user(
+            "Active Student",
+            "delete-ui-active@test.com",
+            "student"
+        )
+        active_id = active_student.user_id
+
+        disabled_student = create_user(
+            "Disabled Student",
+            "delete-ui-disabled@test.com",
+            "student"
+        )
+        disabled_id = disabled_student.user_id
+        disabled_student.is_active = False
+
+        db.session.commit()
+
+    login_as(client, "delete-ui-admin@test.com")
+
+    response = client.get("/admin/users")
+
+    assert response.status_code == 200
+
+    page = response.data.decode()
+
+    assert "Delete Account" in page
+
+    assert (
+        f'action="/admin/users/{disabled_id}/delete"'
+        in page
+    )
+
+    assert (
+        f'action="/admin/users/{active_id}/delete"'
+        not in page
+    )
+
+    assert (
+        f'action="/admin/users/{admin_id}/delete"'
+        not in page
+    )

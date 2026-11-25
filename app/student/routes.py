@@ -180,6 +180,7 @@ def experience():
         student=student_profile
     )
 
+
 @student.route("/resume/upload", methods=["GET", "POST"])
 @role_required("student")
 def upload_resume():
@@ -190,120 +191,160 @@ def upload_resume():
     if request.method == "POST":
         file = request.files.get("resume")
 
-        if file and file.filename:
-            filename = secure_filename(file.filename)
+        if not file or not file.filename:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Please select a resume file."
+            )
 
-            extension = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+        filename = secure_filename(file.filename)
 
-            allowed_extensions = current_app.config[
-                "ALLOWED_RESUME_EXTENSIONS"
-            ]
+        if not filename or "." not in filename:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Invalid filename. Please upload a PDF or DOCX file."
+            )
 
-            if not filename or extension not in allowed_extensions:
-                return render_template(
-                    "student/upload_resume.html",
-                    student=student_profile,
-                    error="Invalid file type. Please upload a PDF, DOC, or DOCX file."
+        extension = filename.rsplit(".", 1)[1].lower()
+
+        allowed_extensions = current_app.config[
+            "ALLOWED_RESUME_EXTENSIONS"
+        ]
+
+        if extension not in allowed_extensions:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error="Invalid file type. Please upload a PDF or DOCX file."
+            )
+
+        # Validate and extract the document BEFORE storing it.
+        # A valid document with no extractable text returns an empty
+        # string, whereas an invalid document raises ValueError.
+        try:
+            file_content = file.read()
+
+            extracted_text = resume_parser.extract_resume_text(
+                file_content,
+                filename
+            )
+
+        except ValueError as error:
+            current_app.logger.warning(
+                "Resume upload rejected for %s: %s",
+                filename,
+                error
+            )
+
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error=str(error)
+            )
+
+        finally:
+            # Reset the stream so the storage service receives
+            # the complete original document.
+            file.seek(0)
+
+        resume = Resume.query.filter_by(
+            student_id=student_profile.student_id
+        ).first()
+
+        old_file_path = resume.file_path if resume else None
+
+        # Store the validated document.
+        try:
+            new_file_path = save_resume_file(
+                file,
+                student_profile.student_id,
+                filename
+            )
+
+        except ValueError as error:
+            return render_template(
+                "student/upload_resume.html",
+                student=student_profile,
+                error=str(error)
+            )
+
+        # Update the database only after successful file storage.
+        try:
+            if resume:
+                resume.file_name = filename
+                resume.file_path = new_file_path
+                resume.extracted_text = extracted_text
+
+            else:
+                resume = Resume(
+                    student_id=student_profile.student_id,
+                    file_name=filename,
+                    file_path=new_file_path,
+                    extracted_text=extracted_text
                 )
 
-            resume = Resume.query.filter_by(
-                student_id=student_profile.student_id
-            ).first()
+                db.session.add(resume)
 
-            old_file_path = resume.file_path if resume else None
+            # Automatically add detected skills without removing
+            # skills manually entered by the student.
+            if extracted_text:
+                detected_skills = skill_extractor.extract_skills(
+                    extracted_text
+                )
 
-            # Extract searchable text before saving the uploaded file.
+                for skill_name in detected_skills:
+                    skill = Skill.query.filter_by(
+                        skill_name=skill_name
+                    ).first()
+
+                    if not skill:
+                        skill = Skill(skill_name=skill_name)
+                        db.session.add(skill)
+                        db.session.flush()
+
+                    if skill not in student_profile.skills:
+                        student_profile.skills.append(skill)
+
+            db.session.commit()
+
+        except Exception:
+            db.session.rollback()
+
+            # Remove the newly stored file if the database update fails.
             try:
-                file_content = file.read()
-                extracted_text = resume_parser.extract_resume_text(
-                    file_content,
-                    filename
-                )
-            except ValueError as error:
-                current_app.logger.warning(
-                    "Resume text extraction skipped for %s: %s",
-                    filename,
-                    error
-                )
-                extracted_text = None
-            finally:
-                # Storage must receive the complete original file.
-                file.seek(0)
-
-            # Save the new resume through the configured storage service.
-            try:
-                new_file_path = save_resume_file(
-                    file,
-                    student_profile.student_id,
-                    filename
-                )
-            except ValueError as error:
-                return render_template(
-                    "student/upload_resume.html",
-                    student=student_profile,
-                    error=str(error)
-                )
-
-            # Update the database only after the file was saved.
-            try:
-                if resume:
-                    resume.file_name = filename
-                    resume.file_path = new_file_path
-                    resume.extracted_text = extracted_text
-                else:
-                    resume = Resume(
-                        student_id=student_profile.student_id,
-                        file_name=filename,
-                        file_path=new_file_path,
-                        extracted_text=extracted_text
-                    )
-                    db.session.add(resume)
-
-                # Add automatically detected skills without removing
-                # skills the student has already entered manually.
-                if extracted_text:
-                    detected_skills = skill_extractor.extract_skills(
-                        extracted_text
-                    )
-
-                    for skill_name in detected_skills:
-                        skill = Skill.query.filter_by(
-                            skill_name=skill_name
-                        ).first()
-
-                        if not skill:
-                            skill = Skill(skill_name=skill_name)
-                            db.session.add(skill)
-                            db.session.flush()
-
-                        if skill not in student_profile.skills:
-                            student_profile.skills.append(skill)
-
-                db.session.commit()
+                delete_resume_file(new_file_path)
 
             except Exception:
-                db.session.rollback()
+                current_app.logger.exception(
+                    "Could not clean up the uploaded resume."
+                )
 
-                # Clean up the newly uploaded file if the DB update fails.
-                try:
-                    delete_resume_file(new_file_path)
-                except Exception:
-                    current_app.logger.exception(
-                        "Could not clean up the uploaded resume."
-                    )
+            raise
 
-                raise
+        # Delete the old file only after the database transaction succeeds.
+        if old_file_path and old_file_path != new_file_path:
+            try:
+                delete_resume_file(old_file_path)
 
-            # Delete the previous resume only after the DB update succeeds.
-            if old_file_path and old_file_path != new_file_path:
-                try:
-                    delete_resume_file(old_file_path)
-                except Exception:
-                    current_app.logger.exception(
-                        "Could not delete the previous resume."
-                    )
+            except Exception:
+                current_app.logger.exception(
+                    "Could not delete the previous resume."
+                )
 
-            return redirect(url_for("student.profile"))
+        # A valid scanned PDF can have no selectable text.
+        if not extracted_text:
+            flash(
+                "Resume uploaded successfully, but no selectable text "
+                "was found. Automatic skill extraction was unavailable. "
+                "You can add your skills manually.",
+                "info"
+            )
+
+            return redirect(url_for("student.upload_resume"))
+
+        return redirect(url_for("student.profile"))
 
     return render_template(
         "student/upload_resume.html",

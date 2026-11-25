@@ -35,6 +35,14 @@
             </p>
         {% endif %}
 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="flash-message" role="status">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
         <section class="detail-card">
 
             <h2>Current Resume</h2>
@@ -80,7 +88,7 @@
             </h2>
 
             <p>
-                Accepted formats: PDF, DOC and DOCX.
+                Accepted formats: PDF and DOCX.
             </p>
 
             <form method="POST" enctype="multipart/form-data">
@@ -97,7 +105,7 @@
                         type="file"
                         id="resume"
                         name="resume"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf,.docx"
                         required
                     >
 

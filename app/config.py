@@ -56,7 +56,7 @@ class Config:
         os.path.join(BASE_DIR, "uploads")
     )
 
-    ALLOWED_RESUME_EXTENSIONS = {"pdf", "doc", "docx"}
+    ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx"}
 
     # Resume storage configuration
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")

@@ -10,7 +10,31 @@ from app.extensions import db
 from app.models import User, StudentProfile
 from app.models import Internship, RecruiterProfile, Application, Resume, Skill
 from app.services.date_utils import current_ist_date
+from pypdf import PdfWriter
+from docx import Document
 
+
+def make_valid_pdf():
+    """Create a structurally valid PDF without selectable text."""
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+
+    output = BytesIO()
+    writer.write(output)
+
+    return output.getvalue()
+
+def make_valid_docx():
+    document = Document()
+
+    document.add_paragraph(
+        "Software developer with Python and Flask experience."
+    )
+
+    output = BytesIO()
+    document.save(output)
+
+    return output.getvalue()
 
 @pytest.fixture
 def app():
@@ -153,11 +177,13 @@ def test_student_can_remove_skill(client, student_user):
 def test_student_can_upload_resume(client, student_user):
     login_student(client, student_user)
 
+    pdf_content = make_valid_pdf()
+
     response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"fake pdf content"),
+                BytesIO(pdf_content),
                 "test_resume.pdf"
             )
         },
@@ -166,6 +192,7 @@ def test_student_can_upload_resume(client, student_user):
     )
 
     assert response.status_code == 200
+    assert b"no selectable text" in response.data
 
     with client.application.app_context():
         profile = StudentProfile.query.filter_by(
@@ -174,6 +201,7 @@ def test_student_can_upload_resume(client, student_user):
 
         assert profile.resume is not None
         assert profile.resume.file_name == "test_resume.pdf"
+        assert profile.resume.extracted_text == ""
 
 def test_student_cannot_upload_invalid_resume(client, student_user):
     login_student(client, student_user)
@@ -199,6 +227,32 @@ def test_student_cannot_upload_invalid_resume(client, student_user):
 
         assert profile.resume is None
 
+def test_student_cannot_upload_legacy_doc(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"legacy doc content"),
+                "legacy_resume.doc"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 200
+    assert b"Invalid file type" in response.data
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None
+
 def test_student_can_replace_resume(client, student_user):
     login_student(client, student_user)
 
@@ -206,7 +260,7 @@ def test_student_can_replace_resume(client, student_user):
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"first resume"),
+                BytesIO(make_valid_pdf()),
                 "resume_one.pdf"
             )
         },
@@ -220,7 +274,7 @@ def test_student_can_replace_resume(client, student_user):
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"second resume"),
+                BytesIO(make_valid_pdf()),
                 "resume_two.pdf"
             )
         },
@@ -242,11 +296,13 @@ def test_student_can_replace_resume(client, student_user):
 def test_student_can_access_resume(client, student_user):
     login_student(client, student_user)
 
+    resume_content = make_valid_pdf()
+
     upload_response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"resume content"),
+                BytesIO(resume_content),
                 "access_test.pdf"
             )
         },
@@ -259,7 +315,7 @@ def test_student_can_access_resume(client, student_user):
     response = client.get("/student/resume")
 
     assert response.status_code == 200
-    assert response.data == b"resume content"
+    assert response.data == resume_content
 
 def test_student_profile_completion(client, student_user):
     login_student(client, student_user)
@@ -318,12 +374,13 @@ def test_student_resume_routes_use_supabase_storage(
 
     login_student(client, student_user)
 
-    # Upload the first resume.
+    first_content = make_valid_pdf()
+
     first_response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"first cloud resume"),
+                BytesIO(first_content),
                 "first_resume.pdf"
             )
         },
@@ -336,14 +393,15 @@ def test_student_resume_routes_use_supabase_storage(
 
     old_path = next(iter(bucket.files))
 
-    # Replace it with a second resume.
+    second_content = make_valid_pdf()
+
     second_response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"second cloud resume"),
+                BytesIO(second_content),
                 "second_resume.pdf"
-            )
+         )
         },
         content_type="multipart/form-data",
         follow_redirects=True
@@ -357,7 +415,7 @@ def test_student_resume_routes_use_supabase_storage(
     response = client.get("/student/resume")
 
     assert response.status_code == 200
-    assert response.data == b"second cloud resume"
+    assert response.data == second_content
 
 def test_student_can_browse_active_internships(
     client, student_user, app
@@ -1121,16 +1179,44 @@ def test_replacing_resume_updates_extracted_text(
         )
 
 
-def test_resume_upload_succeeds_when_text_extraction_fails(
+def test_corrupted_resume_upload_is_rejected_without_replacing_existing_resume(
     client, student_user, monkeypatch
 ):
     from app.services import resume_parser
 
-    extraction_attempts = []
+    login_student(client, student_user)
 
+    # First upload a valid existing resume.
+    existing_content = make_valid_pdf()
+
+    first_response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(existing_content),
+                "existing_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert first_response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        original_file_path = profile.resume.file_path
+        original_resume_name = profile.resume.file_name
+
+    # Simulate a corrupted document during extraction.
     def failed_extraction(file_content, filename):
-        extraction_attempts.append((file_content, filename))
-        raise ValueError("Could not extract text from the resume.")
+        raise ValueError(
+            "The PDF is corrupted or cannot be read. "
+            "Please upload a valid PDF."
+        )
 
     monkeypatch.setattr(
         resume_parser,
@@ -1138,14 +1224,12 @@ def test_resume_upload_succeeds_when_text_extraction_fails(
         failed_extraction
     )
 
-    login_student(client, student_user)
-
     response = client.post(
         "/student/resume/upload",
         data={
             "resume": (
-                BytesIO(b"unreadable pdf"),
-                "unreadable.pdf"
+                BytesIO(b"corrupted pdf content"),
+                "corrupted_resume.pdf"
             )
         },
         content_type="multipart/form-data",
@@ -1153,18 +1237,16 @@ def test_resume_upload_succeeds_when_text_extraction_fails(
     )
 
     assert response.status_code == 200
-    assert extraction_attempts == [
-        (b"unreadable pdf", "unreadable.pdf")
-    ]
+    assert b"corrupted" in response.data
 
+    # The original resume must remain untouched.
     with client.application.app_context():
         profile = StudentProfile.query.filter_by(
             user_id=student_user.user_id
         ).first()
 
-        assert profile.resume is not None
-        assert profile.resume.file_name == "unreadable.pdf"
-        assert profile.resume.extracted_text is None
+        assert profile.resume.file_name == original_resume_name
+        assert profile.resume.file_path == original_file_path
 
 def test_resume_upload_adds_extracted_skills_and_preserves_manual_skills(
     client, student_user, monkeypatch
@@ -1315,3 +1397,95 @@ def test_student_can_view_prioritized_skill_gaps(
 
     # JavaScript is required by an active internship.
     assert b"<strong>JavaScript</strong>" in response.data
+
+def test_student_can_upload_docx_and_extract_skills(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    docx_content = make_valid_docx()
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(docx_content),
+                "student_resume.docx"
+            )
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is not None
+        assert profile.resume.file_name == "student_resume.docx"
+
+        assert "Python" in profile.resume.extracted_text
+        assert "Flask" in profile.resume.extracted_text
+
+        skill_names = {
+            skill.skill_name for skill in profile.skills
+        }
+
+        assert {"Python", "Flask"}.issubset(skill_names)
+
+def test_student_cannot_upload_empty_resume(
+    client, student_user
+):
+    login_student(client, student_user)
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b""),
+                "empty_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 200
+    assert b"empty" in response.data.lower()
+
+    with client.application.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None
+
+def test_student_upload_rejects_files_over_size_limit(
+    client, student_user, app
+):
+    login_student(client, student_user)
+
+    # Use a smaller limit to keep the test lightweight.
+    app.config["MAX_CONTENT_LENGTH"] = 1024
+
+    response = client.post(
+        "/student/resume/upload",
+        data={
+            "resume": (
+                BytesIO(b"x" * 2048),
+                "large_resume.pdf"
+            )
+        },
+        content_type="multipart/form-data"
+    )
+
+    assert response.status_code == 413
+
+    with app.app_context():
+        profile = StudentProfile.query.filter_by(
+            user_id=student_user.user_id
+        ).first()
+
+        assert profile.resume is None

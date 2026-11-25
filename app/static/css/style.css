@@ -1992,3 +1992,245 @@ body:has(input[type="password"]):not(:has(.auth-page)) > p {
         flex-direction: column;
     }
 }
+
+/* ============================================================
+   ADMIN APPLICATION MONITORING
+   ============================================================ */
+
+.admin-application-page {
+    width: min(1180px, calc(100% - 48px));
+    margin: 42px auto 80px;
+}
+
+.admin-application-page .page-heading {
+    margin-bottom: 28px;
+}
+
+.admin-application-page .page-heading h1 {
+    margin: 8px 0;
+    font-size: clamp(2rem, 3.6vw, 2.8rem);
+}
+
+.admin-application-page .page-heading p {
+    max-width: 65ch;
+    margin: 0;
+}
+
+/* Summary */
+
+.application-monitor-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 36px;
+    padding: 23px 28px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--blue);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.application-monitor-summary > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.application-summary-label {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.application-summary-number {
+    color: var(--navy);
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.application-monitor-summary > p {
+    margin: 0;
+    font-size: 13px;
+}
+
+/* Table heading */
+
+.application-table-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 17px;
+}
+
+.application-table-heading h2 {
+    margin: 0 0 5px;
+    font-size: 1.4rem;
+}
+
+.application-table-heading p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.application-record-count {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Table card */
+
+.application-table-card {
+    overflow: hidden;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.application-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.application-monitor-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+}
+
+.application-monitor-table th {
+    padding: 17px 20px;
+    background: #f3f5fb;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+}
+
+.application-monitor-table td {
+    padding: 19px 20px;
+    color: var(--ink);
+    font-size: 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--line);
+}
+
+.application-monitor-table tbody tr {
+    transition: background var(--ease);
+}
+
+.application-monitor-table tbody tr:hover {
+    background: #f8f9fd;
+}
+
+.application-monitor-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Candidate, internship and recruiter details */
+
+.application-cell-primary {
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.application-cell-secondary {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.application-date {
+    color: var(--muted) !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+}
+
+/* Application status badges */
+
+.application-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    background: #eef0f4;
+    color: #526075;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.application-status-applied {
+    background: #eef2ff;
+    color: #3457d5;
+}
+
+.application-status-shortlisted,
+.application-status-accepted {
+    background: #e7f7ef;
+    color: #14764f;
+}
+
+.application-status-under-review {
+    background: #fff4df;
+    color: #94600d;
+}
+
+.application-status-rejected {
+    background: #fff0f1;
+    color: #b83242;
+}
+
+.application-status-withdrawn {
+    background: #eef0f4;
+    color: #687589;
+}
+
+/* Empty state */
+
+.application-monitor-empty {
+    margin-top: 10px;
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+    .admin-application-page {
+        width: calc(100% - 32px);
+        margin: 28px auto 50px;
+    }
+
+    .application-monitor-summary {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 21px;
+    }
+
+    .application-table-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .application-table-card {
+        border-radius: var(--radius-sm);
+    }
+}

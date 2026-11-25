@@ -1118,7 +1118,12 @@ def test_admin_can_monitor_all_platform_applications(
     assert b"Rejected" in response.data
 
     normalized_response = b" ".join(response.data.split())
-    assert b"Total Applications: 2" in normalized_response
+
+    assert b"Total Platform Applications" in normalized_response
+    assert (
+        b'<strong class="application-summary-number"> 2 </strong>'
+        in normalized_response
+    )
 
     # Application monitoring must not expose credentials.
     assert b"password_hash" not in response.data

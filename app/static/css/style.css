@@ -2234,3 +2234,11 @@ body:has(input[type="password"]):not(:has(.auth-page)) > p {
         border-radius: var(--radius-sm);
     }
 }
+
+.navbar-logo {
+    height: 46px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+    display: block;
+}

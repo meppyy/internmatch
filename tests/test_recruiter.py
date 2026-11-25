@@ -684,3 +684,113 @@ def test_recruiter_can_view_only_authorized_applicant_resumes(
 
     student_response = student_client.get(resume_url)
     assert student_response.status_code == 403
+
+
+def test_recruiter_can_delete_internship_without_applications(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "delete-empty@test.com",
+        "Deletable Test Internship"
+    )
+
+    login(client, email, "TestPassword123")
+
+    delete_url = f"/recruiter/internships/{internship_id}/delete"
+
+    # Deletion must not be allowed through GET.
+    get_response = client.get(delete_url)
+    assert get_response.status_code == 405
+
+    response = client.post(
+        delete_url,
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Internship deleted successfully." in response.data
+    assert b"Deletable Test Internship" not in response.data
+
+    with app.app_context():
+        assert db.session.get(Internship, internship_id) is None
+
+
+def test_recruiter_cannot_delete_internship_with_applications(
+    client, app
+):
+    email, internship_id = create_recruiter_internship(
+        app,
+        "delete-applicants@test.com",
+        "Protected Internship"
+    )
+
+    application_id = create_applicant_for_internship(
+        app, internship_id
+    )
+
+    with app.app_context():
+        application = db.session.get(
+            Application, application_id
+        )
+        resume_id = application.resume_id
+
+    login(client, email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{internship_id}/delete",
+        follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert (
+        b"students have applied. Close the listing instead."
+        in response.data
+    )
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, internship_id
+        )
+        application = db.session.get(
+            Application, application_id
+        )
+        resume = db.session.get(Resume, resume_id)
+
+        assert internship is not None
+        assert application is not None
+        assert application.internship_id == internship_id
+        assert application.status == "Under Review"
+        assert resume is not None
+
+
+def test_recruiter_cannot_delete_another_recruiters_internship(
+    client, app
+):
+    owner_email, _ = create_recruiter_internship(
+        app,
+        "delete-owner@test.com",
+        "Owner Internship"
+    )
+
+    _, other_internship_id = create_recruiter_internship(
+        app,
+        "delete-other-owner@test.com",
+        "Another Recruiter's Internship"
+    )
+
+    login(client, owner_email, "TestPassword123")
+
+    response = client.post(
+        f"/recruiter/internships/{other_internship_id}/delete"
+    )
+
+    assert response.status_code == 404
+
+    with app.app_context():
+        internship = db.session.get(
+            Internship, other_internship_id
+        )
+
+        assert internship is not None
+        assert internship.title == "Another Recruiter's Internship"

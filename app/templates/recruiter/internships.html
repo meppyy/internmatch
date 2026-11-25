@@ -142,6 +142,28 @@
                                     View Applicants
                                 </a>
 
+                                <form
+    class="inline-form"
+    method="POST"
+    action="{{ url_for(
+        'recruiter.delete_internship',
+        internship_id=internship.internship_id
+    ) }}"
+    onsubmit="return confirm(
+        'Are you sure you want to delete this internship?'
+    )"
+>
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+    >
+
+    <button type="submit" class="danger-button">
+        Delete Listing
+    </button>
+</form>
+
                             </div>
 
                         </div>

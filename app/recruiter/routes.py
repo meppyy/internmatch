@@ -402,6 +402,43 @@ def edit_internship(internship_id):
     return render_edit_form()
 
 @recruiter.route(
+    "/internships/<int:internship_id>/delete",
+    methods=["POST"]
+)
+@role_required("recruiter")
+def delete_internship(internship_id):
+    recruiter_profile = RecruiterProfile.query.filter_by(
+        user_id=current_user.user_id
+    ).first_or_404()
+
+    # Only the owner of the listing can delete it.
+    internship = Internship.query.filter_by(
+        internship_id=internship_id,
+        recruiter_id=recruiter_profile.recruiter_id
+    ).first_or_404()
+
+    # Preserve application history. Listings with applicants
+    # must be closed instead of deleted.
+    existing_application = Application.query.filter_by(
+        internship_id=internship.internship_id
+    ).first()
+
+    if existing_application:
+        flash(
+            "This internship cannot be deleted because students "
+            "have applied. Close the listing instead.",
+            "error"
+        )
+        return redirect(url_for("recruiter.internships"))
+
+    db.session.delete(internship)
+    db.session.commit()
+
+    flash("Internship deleted successfully.", "success")
+
+    return redirect(url_for("recruiter.internships"))
+
+@recruiter.route(
     "/internships/<int:internship_id>/applications"
 )
 @role_required("recruiter")

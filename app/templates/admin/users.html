@@ -7,59 +7,121 @@
     <title>User Management - InternMatch</title>
 
     <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/app.css') }}">
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
-<body class="app-page">
+<body>
 
     {% include "_navigation.html" %}
 
-    <main>
-        <h1>User Management</h1>
+    <main class="page-container">
 
-        <p>Registered accounts on the InternMatch platform.</p>
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            ← Back to Admin Dashboard
+        </a>
 
-        <p>
-            Total Registered Users: {{ users|length }}
-        </p>
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>User Management</h1>
+                <p>
+                    View and monitor registered accounts
+                    on the InternMatch platform.
+                </p>
+            </div>
+        </div>
 
-        {% if users %}
+        <section class="dashboard-section">
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Registered On</th>
-                    </tr>
-                </thead>
+            <div class="section-title">
+                <div>
+                    <h2>Registered Users</h2>
+                    <p>
+                        Total Registered Users: {{ users|length }}
+                    </p>
+                </div>
+            </div>
 
-                <tbody>
+            {% if users %}
+
+                <div class="recruiter-listing-grid">
+
                     {% for user in users %}
-                        <tr>
-                            <td>{{ user.name }}</td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.role|title }}</td>
-                            <td>
-                                {{ user.created_at.strftime("%d %b %Y") }}
-                            </td>
-                        </tr>
+
+                        <article class="recruiter-listing-card">
+
+                            <div class="listing-card-top">
+
+                                <div>
+                                    <h2>{{ user.name }}</h2>
+
+                                    <p class="company-name">
+                                        {{ user.role|title }} Account
+                                    </p>
+                                </div>
+
+                                <span class="status-badge">
+                                    {{ user.role|title }}
+                                </span>
+
+                            </div>
+
+                            <div class="detail-section">
+
+                                <h3>Account Information</h3>
+
+                                <div class="listing-meta">
+
+                                    <div>
+                                        <span>Email Address</span>
+                                        <strong>{{ user.email }}</strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Registered On</span>
+                                        <strong>
+                                            {{ user.created_at.strftime("%d %b %Y") }}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </article>
+
                     {% endfor %}
-                </tbody>
-            </table>
 
-        {% else %}
+                </div>
 
-            <p>No registered users found.</p>
+            {% else %}
 
-        {% endif %}
+                <div class="empty-state">
 
-        <p>
-            <a href="{{ url_for('admin.dashboard') }}">
+                    <div class="empty-icon">◎</div>
+
+                    <h2>No Registered Users</h2>
+
+                    <p>
+                        No registered users found.
+                        Accounts will appear here when users join InternMatch.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+        <div class="page-actions">
+
+            <a class="secondary-button"
+               href="{{ url_for('admin.dashboard') }}">
                 Back to Admin Dashboard
             </a>
-        </p>
+
+        </div>
 
     </main>
 

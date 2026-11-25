@@ -6,62 +6,99 @@
     <title>Admin Dashboard - InternMatch</title>
 
     <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/app.css') }}">
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
-<body class="app-page">
+<body>
 
     {% include "_navigation.html" %}
 
-    <main>
-        <h1>Admin Dashboard</h1>
+    <main class="page-container">
 
-        <p>Platform overview and statistics.</p>
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>Admin Dashboard</h1>
+                <p>Platform overview and statistics.</p>
+            </div>
+        </div>
 
-        <section>
-            <h2>User Statistics</h2>
+        <section class="dashboard-section">
 
-            <p>
-                <strong>Total Users:</strong>
-                {{ total_users }}
-            </p>
+            <div class="section-title">
+                <div>
+                    <h2>User Statistics</h2>
+                    <p>An overview of registered platform accounts.</p>
+                </div>
+            </div>
 
-            <p>
-                <strong>Total Students:</strong>
-                {{ total_students }}
-            </p>
+            <div class="stats-grid">
 
-            <p>
-                <strong>Total Recruiters:</strong>
-                {{ total_recruiters }}
-            </p>
+                <article class="stat-card">
+                    <span class="stat-label">Total Users</span>
+                    <strong class="stat-value">{{ total_users }}</strong>
+                    <span class="stat-description">
+                        Registered platform users
+                    </span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Students</span>
+                    <strong class="stat-value">{{ total_students }}</strong>
+                    <span class="stat-description">
+                        Registered student profiles
+                    </span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Total Recruiters</span>
+                    <strong class="stat-value">{{ total_recruiters }}</strong>
+                    <span class="stat-description">
+                        Registered recruiter profiles
+                    </span>
+                </article>
+
+            </div>
+
         </section>
 
-        <hr>
+        <section class="dashboard-section">
 
-        <section>
-            <h2>Internship Statistics</h2>
+            <div class="section-title">
+                <div>
+                    <h2>Platform Activity</h2>
+                    <p>An overview of internships and applications.</p>
+                </div>
+            </div>
 
-            <p>
-                <strong>Total Internships:</strong>
-                {{ total_internships }}
-            </p>
+            <div class="stats-grid">
 
-            <p>
-                <strong>Active Internships:</strong>
-                {{ active_internships }}
-            </p>
-        </section>
+                <article class="stat-card">
+                    <span class="stat-label">Total Internships</span>
+                    <strong class="stat-value">{{ total_internships }}</strong>
+                    <span class="stat-description">
+                        Internship listings on the platform
+                    </span>
+                </article>
 
-        <hr>
+                <article class="stat-card stat-card-active">
+                    <span class="stat-label">Active Internships</span>
+                    <strong class="stat-value">{{ active_internships }}</strong>
+                    <span class="stat-description">
+                        Currently active listings
+                    </span>
+                </article>
 
-        <section>
-            <h2>Application Statistics</h2>
+                <article class="stat-card">
+                    <span class="stat-label">Total Applications</span>
+                    <strong class="stat-value">{{ total_applications }}</strong>
+                    <span class="stat-description">
+                        Applications submitted by students
+                    </span>
+                </article>
 
-            <p>
-                <strong>Total Applications:</strong>
-                {{ total_applications }}
-            </p>
+            </div>
+
         </section>
 
     </main>

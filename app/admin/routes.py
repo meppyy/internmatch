@@ -1,3 +1,5 @@
+import json
+from ..models.moderation_action import ModerationAction
 from flask import (
     render_template, flash, redirect, request, url_for, current_app
 )
@@ -13,6 +15,42 @@ from ..models.internship import Internship
 from ..models.application import Application
 from sqlalchemy.orm import joinedload
 
+def _record_moderation_action(
+    action_type,
+    target_snapshot,
+    target_user_id=None,
+    target_internship_id=None,
+    old_value=None,
+    new_value=None
+):
+    """
+    Add an administrator activity record to the current transaction.
+    The caller is responsible for committing it alongside the action.
+    """
+    if (target_user_id is None) == (target_internship_id is None):
+        raise ValueError(
+            "An audit record must have exactly one target."
+        )
+
+    action = ModerationAction(
+        admin_user_id=current_user.user_id,
+        admin_name=current_user.name,
+        admin_email=current_user.email,
+        action_type=action_type,
+        target_user_id=target_user_id,
+        target_internship_id=target_internship_id,
+        target_snapshot=json.dumps(target_snapshot, sort_keys=True),
+        old_value=(
+            json.dumps(old_value, sort_keys=True)
+            if old_value is not None else None
+        ),
+        new_value=(
+            json.dumps(new_value, sort_keys=True)
+            if new_value is not None else None
+        )
+    )
+
+    db.session.add(action)
 
 @admin.route("/dashboard")
 @role_required("admin")
@@ -68,8 +106,22 @@ def update_internship_status(internship_id):
         flash("Invalid internship status.", "error")
         return redirect(url_for("admin.internship_management"))
 
-    internship.status = new_status
-    db.session.commit()
+    old_status = internship.status
+
+    if old_status != new_status:
+        _record_moderation_action(
+            action_type="internship_status_changed",
+            target_internship_id=internship.internship_id,
+            target_snapshot={
+                "internship_id": internship.internship_id,
+                "title": internship.title,
+            },
+            old_value=old_status,
+            new_value=new_status
+        )
+
+        internship.status = new_status
+        db.session.commit()
 
     flash(
         "Internship status updated successfully.",
@@ -98,6 +150,15 @@ def delete_internship(internship_id):
             "error"
         )
         return redirect(url_for("admin.internship_management"))
+
+    _record_moderation_action(
+        action_type="internship_deleted",
+        target_internship_id=internship.internship_id,
+        target_snapshot={
+            "internship_id": internship.internship_id,
+            "title": internship.title
+        }
+    )
 
     db.session.delete(internship)
     db.session.commit()
@@ -161,6 +222,19 @@ def update_user_status(user_id):
                         url_for("admin.user_management")
                     )
 
+            _record_moderation_action(
+                action_type="user_disabled",
+                target_user_id=user.user_id,
+                target_snapshot={
+                    "user_id": user.user_id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role": user.role
+                },
+                old_value=True,
+                new_value=False
+            )
+
             user.is_active = False
             user.session_version += 1
 
@@ -172,6 +246,20 @@ def update_user_status(user_id):
         if user.is_active:
             flash("Account is already enabled.", "warning")
         else:
+
+            _record_moderation_action(
+                action_type="user_enabled",
+                target_user_id=user.user_id,
+                target_snapshot={
+                    "user_id": user.user_id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role": user.role
+                },
+                old_value=False,
+                new_value=True
+            )
+
             user.is_active = True
             db.session.commit()
 
@@ -272,6 +360,18 @@ def delete_user(user_id):
         )
         return redirect(url_for("admin.user_management"))
 
+    _record_moderation_action(
+        action_type="user_deleted",
+        target_user_id=user.user_id,
+        target_snapshot={
+            "user_id": user.user_id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active
+        }
+    )
+
     # Delete database records only after all safeguards pass.
     db.session.delete(user)
     db.session.commit()
@@ -332,4 +432,89 @@ def application_monitor():
         "admin/applications.html",
         applications=applications,
         total_applications=len(applications)
+    )
+
+def _decode_activity_value(raw_value):
+    if raw_value is None:
+        return None
+
+    try:
+        return json.loads(raw_value)
+    except (TypeError, ValueError):
+        return raw_value
+
+
+def _format_activity_value(raw_value):
+    value = _decode_activity_value(raw_value)
+
+    if value is None:
+        return "—"
+
+    if isinstance(value, bool):
+        return "Enabled" if value else "Disabled"
+
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True)
+
+    return str(value)
+
+
+@admin.route("/activity", methods=["GET"])
+@role_required("admin")
+def activity_history():
+    actions = ModerationAction.query.order_by(
+        ModerationAction.created_at.desc(),
+        ModerationAction.action_id.desc()
+    ).all()
+
+    activity_items = []
+
+    for action in actions:
+        target = _decode_activity_value(
+            action.target_snapshot
+        )
+
+        if not isinstance(target, dict):
+            target = {}
+
+        is_user = action.target_user_id is not None
+        target_type = "User" if is_user else "Internship"
+        target_id = (
+            action.target_user_id
+            if is_user
+            else action.target_internship_id
+        )
+
+        target_name = (
+            target.get("name")
+            or target.get("title")
+            or f"{target_type} #{target_id}"
+        )
+
+        target_details = (
+            target.get("email")
+            or target.get("role")
+            or ""
+        )
+
+        activity_items.append({
+            "action": action,
+            "action_label": action.action_type.replace(
+                "_", " "
+            ).title(),
+            "target_type": target_type,
+            "target_name": target_name,
+            "target_details": target_details,
+            "old_value": _format_activity_value(
+                action.old_value
+            ),
+            "new_value": _format_activity_value(
+                action.new_value
+            )
+        })
+
+    return render_template(
+        "admin/activity.html",
+        activity_items=activity_items,
+        total_actions=len(activity_items)
     )

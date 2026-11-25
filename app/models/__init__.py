@@ -5,6 +5,7 @@ from .resume import Resume
 from .internship import Internship
 from .skill import Skill
 from .application import Application
+from .moderation_action import ModerationAction
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "Internship",
     "Skill",
     "Application",
+    "ModerationAction",
 ]

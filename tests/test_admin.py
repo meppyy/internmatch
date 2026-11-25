@@ -1,5 +1,7 @@
 import pytest
 
+import json
+from sqlalchemy import text
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -1169,6 +1171,234 @@ def test_platform_application_monitoring_requires_login(
     client
 ):
     response = client.get("/admin/applications")
+
+    assert response.status_code == 302
+    assert "/auth/login" in response.headers["Location"]
+
+def test_admin_actions_are_recorded_in_activity_history(
+    client, app
+):
+    with app.app_context():
+        admin = create_user(
+            "Platform Admin",
+            "audit-admin@test.com",
+            "admin"
+        )
+
+        student = create_user(
+            "Audit Student",
+            "audit-student@test.com",
+            "student"
+        )
+
+        student_id = student.user_id
+        admin_id = admin.user_id
+
+        internship_id = create_recruiter_internship(
+            "audit-recruiter@test.com",
+            "Audit Test Internship",
+            "Draft"
+        )
+
+    login_as(client, "audit-admin@test.com")
+
+    # Disable the student.
+    response = client.post(
+        f"/admin/users/{student_id}/status",
+        data={"action": "disable"},
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+
+    # Re-enable the student.
+    response = client.post(
+        f"/admin/users/{student_id}/status",
+        data={"action": "enable"},
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+
+    # Change the internship status.
+    response = client.post(
+        f"/admin/internships/{internship_id}/status",
+        data={"status": "Active"},
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        rows = db.session.execute(text("""
+            SELECT
+                admin_user_id,
+                admin_name,
+                admin_email,
+                action_type,
+                target_user_id,
+                target_internship_id,
+                target_snapshot,
+                old_value,
+                new_value
+            FROM moderation_actions
+            ORDER BY action_id
+        """)).mappings().all()
+
+        assert len(rows) == 3
+
+        assert rows[0]["admin_user_id"] == admin_id
+        assert rows[0]["admin_name"] == "Platform Admin"
+        assert rows[0]["admin_email"] == "audit-admin@test.com"
+        assert rows[0]["action_type"] == "user_disabled"
+        assert rows[0]["target_user_id"] == student_id
+        assert rows[0]["target_internship_id"] is None
+        assert json.loads(rows[0]["old_value"]) is True
+        assert json.loads(rows[0]["new_value"]) is False
+
+        student_snapshot = json.loads(
+            rows[0]["target_snapshot"]
+        )
+        assert student_snapshot["name"] == "Audit Student"
+        assert student_snapshot["email"] == "audit-student@test.com"
+
+        assert rows[1]["action_type"] == "user_enabled"
+        assert json.loads(rows[1]["old_value"]) is False
+        assert json.loads(rows[1]["new_value"]) is True
+
+        assert rows[2]["action_type"] == "internship_status_changed"
+        assert rows[2]["target_internship_id"] == internship_id
+        assert rows[2]["target_user_id"] is None
+        assert json.loads(rows[2]["old_value"]) == "Draft"
+        assert json.loads(rows[2]["new_value"]) == "Active"
+
+        internship_snapshot = json.loads(
+            rows[2]["target_snapshot"]
+        )
+        assert internship_snapshot["title"] == "Audit Test Internship"
+
+
+def test_deleted_records_remain_in_activity_history(
+    client, app
+):
+    with app.app_context():
+        create_user(
+            "Platform Admin",
+            "audit-delete-admin@test.com",
+            "admin"
+        )
+
+        student = create_user(
+            "Deleted Audit Student",
+            "deleted-audit-student@test.com",
+            "student"
+        )
+        student.is_active = False
+        student_id = student.user_id
+
+        internship_id = create_recruiter_internship(
+            "audit-delete-recruiter@test.com",
+            "Deleted Audit Internship",
+            "Draft"
+        )
+
+        db.session.commit()
+
+    login_as(client, "audit-delete-admin@test.com")
+
+    # Delete the disabled student.
+    response = client.post(
+        f"/admin/users/{student_id}/delete",
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+    assert b"Account deleted successfully." in response.data
+
+    # Delete the internship without application history.
+    response = client.post(
+        f"/admin/internships/{internship_id}/delete",
+        follow_redirects=True
+    )
+    assert response.status_code == 200
+    assert b"Internship deleted successfully." in response.data
+
+    with app.app_context():
+        assert db.session.get(User, student_id) is None
+        assert db.session.get(Internship, internship_id) is None
+
+        rows = db.session.execute(text("""
+            SELECT
+                action_type,
+                target_user_id,
+                target_internship_id,
+                target_snapshot
+            FROM moderation_actions
+            ORDER BY action_id
+        """)).mappings().all()
+
+        assert len(rows) == 2
+
+        deleted_student = rows[0]
+        assert deleted_student["action_type"] == "user_deleted"
+        assert deleted_student["target_user_id"] == student_id
+
+        student_snapshot = json.loads(
+            deleted_student["target_snapshot"]
+        )
+        assert student_snapshot["name"] == "Deleted Audit Student"
+        assert student_snapshot["email"] == "deleted-audit-student@test.com"
+
+        deleted_internship = rows[1]
+        assert deleted_internship["action_type"] == "internship_deleted"
+        assert deleted_internship["target_internship_id"] == internship_id
+
+        internship_snapshot = json.loads(
+            deleted_internship["target_snapshot"]
+        )
+        assert internship_snapshot["title"] == "Deleted Audit Internship"
+
+
+def test_admin_can_view_activity_history(client, app):
+    with app.app_context():
+        create_user(
+            "Platform Admin",
+            "activity-view-admin@test.com",
+            "admin"
+        )
+        db.session.commit()
+
+    login_as(client, "activity-view-admin@test.com")
+
+    response = client.get("/admin/activity")
+
+    assert response.status_code == 200
+    assert b"Administrator Activity History" in response.data
+
+    # Activity history must be read-only.
+    assert client.post("/admin/activity").status_code == 405
+
+
+@pytest.mark.parametrize("role", ["student", "recruiter"])
+def test_non_admin_cannot_view_activity_history(
+    client, app, role
+):
+    with app.app_context():
+        create_user(
+            f"Activity {role.title()}",
+            f"activity-blocked-{role}@test.com",
+            role
+        )
+        db.session.commit()
+
+    login_as(
+        client,
+        f"activity-blocked-{role}@test.com"
+    )
+
+    response = client.get("/admin/activity")
+
+    assert response.status_code == 403
+
+
+def test_activity_history_requires_login(client):
+    response = client.get("/admin/activity")
 
     assert response.status_code == 302
     assert "/auth/login" in response.headers["Location"]

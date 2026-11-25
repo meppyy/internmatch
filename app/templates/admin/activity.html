@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Administrator Activity History - InternMatch</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include "_navigation.html" %}
+
+    <main class="page-container admin-application-page">
+
+        <a class="back-link"
+           href="{{ url_for('admin.dashboard') }}">
+            &larr; Back to Admin Dashboard
+        </a>
+
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">ADMINISTRATOR WORKSPACE</span>
+                <h1>Administrator Activity History</h1>
+                <p>
+                    Review moderation actions and administrative
+                    changes made across InternMatch.
+                </p>
+            </div>
+        </div>
+
+        <section class="application-monitor-summary">
+            <div>
+                <span class="application-summary-label">
+                    Total Recorded Actions
+                </span>
+
+                <strong class="application-summary-number">
+                    {{ total_actions }}
+                </strong>
+            </div>
+
+            <p>
+                A chronological record of administrator activity.
+            </p>
+        </section>
+
+        <section class="application-monitor-section">
+
+            <div class="application-table-heading">
+                <div>
+                    <h2>Platform Activity</h2>
+                    <p>
+                        Records are arranged from newest to oldest.
+                    </p>
+                </div>
+
+                <span class="application-record-count">
+                    {{ total_actions }} records
+                </span>
+            </div>
+
+            {% if activity_items %}
+
+                <div class="application-table-card">
+
+                    <div class="application-table-scroll"
+                         role="region"
+                         aria-label="Administrator activity records"
+                         tabindex="0">
+
+                        <table class="application-monitor-table">
+
+                            <thead>
+                                <tr>
+                                    <th scope="col">Administrator</th>
+                                    <th scope="col">Action</th>
+                                    <th scope="col">Target</th>
+                                    <th scope="col">Previous Value</th>
+                                    <th scope="col">New Value</th>
+                                    <th scope="col">Date</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                {% for item in activity_items %}
+
+                                    <tr>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ item.action.admin_name }}
+                                            </div>
+
+                                            <div class="application-cell-secondary">
+                                                {{ item.action.admin_email }}
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ item.action_label }}
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="application-cell-primary">
+                                                {{ item.target_name }}
+                                            </div>
+
+                                            <div class="application-cell-secondary">
+                                                {{ item.target_type }}
+                                                {% if item.target_details %}
+                                                    &middot; {{ item.target_details }}
+                                                {% endif %}
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            {{ item.old_value }}
+                                        </td>
+
+                                        <td>
+                                            {{ item.new_value }}
+                                        </td>
+
+                                        <td class="application-date">
+                                            {{ item.action.created_at.strftime(
+                                                "%d %b %Y, %I:%M %p"
+                                            ) }}
+                                        </td>
+
+                                    </tr>
+
+                                {% endfor %}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state application-monitor-empty">
+
+                    <div class="empty-icon">&#128220;</div>
+
+                    <h2>No Activity Recorded Yet</h2>
+
+                    <p>
+                        Successful administrator moderation actions
+                        will appear here.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </section>
+
+    </main>
+
+</body>
+</html>
